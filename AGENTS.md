@@ -1,9 +1,8 @@
 # AGENTS.md
 
-Test: `just test` | Fix formatting: `just ready` | Look at the lab: `just list`
-
-Read @CONTRIBUTING.md first. It covers how a change is made and checked, and the
-pull request workflow, all of which apply to agents exactly as they apply to
+Read @CONTRIBUTING.md first. Its "Running the lab" section says what each recipe
+does and what it changes; the rest covers how a change is made and checked, and
+the pull request workflow. All of it applies to agents exactly as it applies to
 people. This file carries only what is specific to agents.
 
 ## Running tools
@@ -11,25 +10,25 @@ people. This file carries only what is specific to agents.
 Invoke tools through `mise`, not from your path:
 
 ```bash
-mise exec -- just list
+mise exec -- just
 ```
 
 `mise` is active in a person's shell and supplies the versions `.mise.toml`
 declares. An agent's shell has no activation, so a bare `just` resolves to
 whatever is installed globally, usually an older version.
 
-Run Ansible only through `just`: a lab recipe, or `just ansible-run <playbook>`
-for any playbook under `ansible/playbooks/`. Both run it through `uv` from
-`ansible/`, so the version is the one `ansible/uv.lock` pins. Never call
-`ansible-playbook` from the path.
+`just` with no arguments lists every recipe with its description, straight from
+the justfile, so it is current where prose may not be. Run it to discover what
+exists; CONTRIBUTING says when to use which.
+
+Run Ansible only through `just`, never `ansible-playbook` from the path. The
+recipes run it through `uv`, so the version is the one `ansible/uv.lock` pins.
 
 ## The lab is real machines
 
-`just list` reads the lab and changes nothing; start there. Every other recipe
-changes the hub or the VMs, and `push` reclones every VM.
-
-`push`, `deploy` and `site` stop for the person's sudo password on the hub. Hand
-those runs to the person rather than working around the prompt.
+Start with a recipe CONTRIBUTING marks as changing nothing. A recipe that asks
+for the hub's sudo password is the person's to run: hand it over rather than
+working around the prompt.
 
 ## Never print secrets
 

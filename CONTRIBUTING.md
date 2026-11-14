@@ -19,8 +19,9 @@ the pull request workflow.
 
 ## Prerequisites
 
-A lab to check your change on, set up as the README's [Set up](README.md#set-up)
-describes.
+[mise](https://mise.jdx.dev) supplies `just`, `uv` and `packer` at the versions
+`.mise.toml` declares, and [direnv](https://direnv.net) loads `.envrc`. A lab to
+check a change on is set up as [Running the lab](#running-the-lab) describes.
 
 ### Claude Code
 
@@ -33,6 +34,69 @@ marketplace:
 
 - **commit-commands.** provides `/commit` and `/commit-push-pr` slash commands
   that follow the project's commit conventions automatically.
+
+## Running the lab
+
+You need one to check a change on, and it is how osapi gets run on real machines
+before a release.
+
+### Set up
+
+On the hub, a Mac on Apple Silicon, with Remote Login on:
+
+```bash
+brew install cirruslabs/cli/tart mise
+```
+
+On your machine, in this repository:
+
+```bash
+mise install                                           # just, uv, packer
+cp ansible/inventory.example.yml ansible/inventory.yml # your hub and osapi checkout
+direnv allow                                           # `osapi` here talks to the lab
+just fetch site                                        # everything; asks for the hub's sudo password
+```
+
+`ansible/inventory.yml` is gitignored and is the only file that names your
+machines.
+
+### Day to day
+
+| You want to                                    | Run                       | Changes                |
+| ---------------------------------------------- | ------------------------- | ---------------------- |
+| See every VM, its image and its osapi build    | `just list`               | nothing                |
+| Read the hub's logs                            | `just logs`               | nothing                |
+| Talk to the lab                                | `osapi client agent list` | nothing                |
+| Shell into a VM                                | `just ssh ubuntu-1`       | nothing                |
+| Rebuild the fleet from your osapi changes      | `just push`               | everything; asks sudo  |
+| Copy your changes into the running VMs, faster | `just deploy`             | hub and VMs; asks sudo |
+| Bring the whole lab back in line with the repo | `just site`               | everything; asks sudo  |
+| Run this machine as an agent too               | `just agent`              | this machine           |
+
+"Asks sudo" is the hub's sudo password: its firewall has to admit each new
+build. `push` also reclones every VM, so anything changed inside one is lost.
+`just` alone lists every recipe, these and the rest.
+
+### Reading `just list`
+
+```
+VM         STATE    ADDRESS         RUN BY   AGENT   IMAGE                  OSAPI
+ubuntu-1   running  192.168.64.11   launchd  active  img-ubuntu-9f0db41f0   v0.2.1-…-9f0db41f0ab1
+
+images on the hub: img-debian-9f0db41f0, img-fedora-9f0db41f0, img-ubuntu-9f0db41f0
+last build here:   feat/behavior-registration@9f0db41f0 (tag 9f0db41f0)
+```
+
+A healthy VM is `running`, run by `launchd`, with an `active` agent. Its `IMAGE`
+ends in the tag of the last build here, and its `OSAPI` version carries that
+commit. When they differ:
+
+| You see                                   | It means                              | Run         |
+| ----------------------------------------- | ------------------------------------- | ----------- |
+| `IMAGE` tag older than the last build     | the VMs run an earlier build          | `just push` |
+| Same `IMAGE`, `OSAPI` from another commit | a `deploy` ran since the last push    | `just push` |
+| `RUN BY manual`, or `STATE absent`        | the VM is not under launchd, or gone  | `just site` |
+| `AGENT` anything but `active`             | the agent is down; see the hub's logs | `just logs` |
 
 ## Making changes
 
@@ -66,9 +130,9 @@ lab:
 | ------------------ | -------------------------------- |
 | `packer/`          | `just push`                      |
 | a role or playbook | the playbook that uses it, twice |
-| anything           | `just list` afterwards           |
 
-The second run of a playbook should report `changed=0`.
+The second run of a playbook should report `changed=0`. Then check the lab is
+healthy, as [Reading `just list`](#reading-just-list) describes.
 `just ansible-run <name> --check --diff` shows what a run would change without
 changing it. Say in the PR what you ran.
 

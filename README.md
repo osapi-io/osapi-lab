@@ -34,7 +34,7 @@ everything over SSH; the hub needs no checkout of this repository.
 ```
             Mac (hub)                        your machine
    ┌──────────────────────────┐           ┌──────────────────────────┐
-   │ osapi nats server :4222  │◄──────────│ just push, osapi client  │
+   │ osapi nats server :4222  │◄──────────│ Ansible, osapi client    │
    │ osapi controller  :8080  │           └──────────────────────────┘
    └────────────▲─────────────┘
                 │
@@ -42,48 +42,14 @@ everything over SSH; the hub needs no checkout of this repository.
  ubuntu-1    debian-1    fedora-1        Tart VMs, one agent each
 ```
 
-### Set up
-
-On the hub, a Mac on Apple Silicon, with Remote Login on:
-
-```bash
-brew install cirruslabs/cli/tart mise
-```
-
-On your machine, in this repository:
-
-```bash
-mise install                                           # just, uv, packer
-cp ansible/inventory.example.yml ansible/inventory.yml # your hub and osapi checkout
-direnv allow                                           # `osapi` here talks to the lab
-just fetch site                                        # everything; asks for the hub's sudo password
-```
-
-`ansible/inventory.yml` is gitignored and is the only file that names your
-machines.
-
-### Day to day
-
-| You want to                                    | Run                       |
-| ---------------------------------------------- | ------------------------- |
-| See every VM, its image and its osapi build    | `just list`               |
-| Rebuild the fleet from your osapi changes      | `just push`               |
-| Copy your changes into the running VMs, faster | `just deploy`             |
-| Talk to the lab                                | `osapi client agent list` |
-| Shell into a VM                                | `just ssh ubuntu-1`       |
-| Read the hub's logs                            | `just logs`               |
-| Run this machine as an agent too               | `just agent`              |
-
-`push`, `deploy` and `site` ask for the hub's sudo password: the hub's firewall
-has to admit each new build. `just` alone lists every recipe.
-
-How it works, and why it is built this way, is in the
+To run it, see [Running the lab](CONTRIBUTING.md#running-the-lab). How it works,
+and why it is built this way, is in the
 [design doc](https://github.com/osapi-io/specs/blob/main/components/osapi-lab/README.md).
 
 ## Contributing
 
-See the [Contributing](CONTRIBUTING.md) guide for how a change to the lab is
-made and checked.
+See the [Contributing](CONTRIBUTING.md) guide for how to run the lab, and how a
+change to it is made and checked.
 
 ## License
 
