@@ -75,6 +75,7 @@ machines.
 | Copy your changes into the running VMs, faster | `just deploy`                      | hub and VMs; asks sudo |
 | Bring the whole lab back in line with the repo | `just site`                        | everything; asks sudo  |
 | Run this machine as an agent too               | `just agent`                       | this machine           |
+| Remove the lab from the hub                    | `just teardown`                    | the hub; asks sudo     |
 
 "Asks sudo" is the hub's sudo password: its firewall has to admit each new
 build. When your osapi checkout changed, `push` reclones every VM, so anything
