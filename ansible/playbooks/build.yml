@@ -1,0 +1,8 @@
+---
+# Compile the osapi checkout the inventory names, on this machine.
+- name: Build osapi
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - build

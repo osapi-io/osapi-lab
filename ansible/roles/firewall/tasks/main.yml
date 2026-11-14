@@ -1,0 +1,35 @@
+---
+- name: Check the firewall arguments
+  ansible.builtin.assert:
+    that: firewall_app | length > 0
+    quiet: true
+
+- name: Read the firewall's block-all setting
+  ansible.builtin.command: /usr/libexec/ApplicationFirewall/socketfilterfw --getblockall
+  register: firewall_blockall
+  changed_when: false
+  check_mode: false
+
+# The firewall knows an unsigned program by its signature, so a rebuilt binary
+# at the same path reads as blocked again.
+- name: Check whether the firewall blocks {{ firewall_app | basename }}
+  ansible.builtin.command: /usr/libexec/ApplicationFirewall/socketfilterfw --getappblocked {{ firewall_app }}
+  register: firewall_blocked
+  changed_when: false
+  check_mode: false
+
+- name: Turn off block-all
+  when:
+    - firewall_allow_incoming | bool
+    - "'blocking all' in firewall_blockall.stdout"
+  become: true
+  ansible.builtin.command: /usr/libexec/ApplicationFirewall/socketfilterfw --setblockall off
+  changed_when: true
+
+- name: Admit {{ firewall_app | basename }}
+  when: "'is blocked' in firewall_blocked.stdout or 'not part of' in firewall_blocked.stdout"
+  become: true
+  ansible.builtin.shell: |
+    /usr/libexec/ApplicationFirewall/socketfilterfw --add {{ firewall_app }}
+    /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp {{ firewall_app }}
+  changed_when: true

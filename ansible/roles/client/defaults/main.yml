@@ -1,0 +1,5 @@
+---
+# The lab on the machine running Ansible: the config `osapi client ...` uses,
+# and the config a remote agent here uses. .envrc points OSAPI_OSAPIFILE at the
+# first.
+client_distro: macos

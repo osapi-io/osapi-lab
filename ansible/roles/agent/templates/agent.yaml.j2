@@ -1,12 +1,10 @@
-# One agent. `just render` writes a copy per node to .lab/config/<name>.yaml,
-# and one for remote agents (a laptop on the tailnet) to .lab/config/remote.yaml.
+# {{ ansible_managed }}
+# One agent. The client role renders this too, for a remote agent.
 #
 # osapi validates the whole file whatever the command, so an agent's config has
 # to carry controller.api.security.signing_key,
 # controller.client.security.bearer_token and controller.nats.port even though
-# the agent uses none of them.
-# These are throwaway values, never the hub's, so a VM never holds the key that
-# signs the hub's tokens.
+# the agent uses none of them. These are throwaway values, never the hub's.
 
 controller:
   client:
@@ -14,30 +12,30 @@ controller:
       bearer_token: unused-by-the-agent
   api:
     security:
-      signing_key: ${LAB_AGENT_DUMMY_KEY}
+      signing_key: {{ lab_agent_dummy_key }}
   nats:
     port: 4222
 
 agent:
-  hostname: ${LAB_NODE}
+  hostname: {{ agent_node }}
   labels:
-    distro: ${LAB_DISTRO}
+    distro: {{ agent_distro }}
   nats:
-    host: ${LAB_NATS_HOST}
+    host: {{ agent_nats_host }}
     port: 4222
     client_name: osapi-agent
     namespace: osapi
     auth:
       type: user_pass
       username: osapi
-      password: ${LAB_NATS_PASSWORD}
+      password: {{ lab_nats_password }}
   metrics:
     enabled: false
   privilege_escalation:
     enabled: false
 
 # The agent binds to buckets the NATS server created; these names have no
-# default, so they are repeated from config/hub.yaml.
+# default, so they are repeated from the hub role's template.
 nats:
   facts:
     bucket: agent-facts

@@ -1,0 +1,48 @@
+---
+- name: Check the arguments for {{ launchd_label }}
+  ansible.builtin.assert:
+    that:
+      - launchd_label | length > 0
+      - launchd_program_arguments | length > 0
+    quiet: true
+
+- name: Find the user's session for {{ launchd_label }}
+  ansible.builtin.shell: echo "$(id -u) $HOME"
+  register: launchd_who
+  changed_when: false
+  check_mode: false
+
+- name: Set the domain and plist path for {{ launchd_label }}
+  ansible.builtin.set_fact:
+    launchd_domain: "gui/{{ launchd_who.stdout.split()[0] }}"
+    launchd_plist: "{{ launchd_who.stdout.split()[1] }}/Library/LaunchAgents/{{ launchd_label }}.plist"
+
+- name: Write the plist for {{ launchd_label }}
+  ansible.builtin.template:
+    src: agent.plist.j2
+    dest: "{{ launchd_plist }}"
+    mode: "0644"
+  register: launchd_written
+
+- name: Check whether launchd has loaded {{ launchd_label }}
+  ansible.builtin.command: launchctl print {{ launchd_domain }}/{{ launchd_label }}
+  register: launchd_loaded
+  changed_when: false
+  check_mode: false
+  failed_when: false
+
+# bootout and bootstrap, not load and unload: the old pair is deprecated and
+# does not reread a changed plist reliably.
+- name: Load {{ launchd_label }}
+  when: launchd_written is changed or launchd_loaded.rc != 0
+  ansible.builtin.shell: |
+    launchctl bootout {{ launchd_domain }} "{{ launchd_plist }}" 2>/dev/null || true
+    launchctl bootstrap {{ launchd_domain }} "{{ launchd_plist }}"
+  changed_when: true
+
+- name: Restart {{ launchd_label }}
+  when:
+    - launchd_restart | bool
+    - not (launchd_written is changed or launchd_loaded.rc != 0)
+  ansible.builtin.command: launchctl kickstart -k {{ launchd_domain }}/{{ launchd_label }}
+  changed_when: true

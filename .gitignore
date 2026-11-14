@@ -1,15 +1,18 @@
 .just/
 .worktrees/
 
-# Everything a lab generates: binaries, rendered configs, secrets, the SSH key,
-# logs and NATS state. See README.md.
+# Everything a lab generates on this machine: builds, rendered configs,
+# secrets, the VMs' SSH key.
 .lab/
-lab.env
 
 # A global gitignore often excludes .envrc. This one holds no names or secrets,
-# only the wiring that loads lab.env, so it is committed.
+# so it is committed.
 !.envrc
 
 # Claude Code local state.
 .claude/settings.local.json
 .claude/worktrees/
+
+# The real inventory names your machines; the venv is uv's.
+ansible/inventory.yml
+ansible/.venv/

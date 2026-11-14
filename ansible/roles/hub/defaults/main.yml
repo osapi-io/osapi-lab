@@ -1,0 +1,7 @@
+---
+# The hub: osapi's embedded NATS server and the controller, each a launchd agent,
+# running the darwin build from lab_state/bin.
+
+# Where the hub keeps builds, config, logs and NATS data; from the inventory.
+hub_state_dir: "{{ lab_hub_state }}"
+hub_label_prefix: io.osapi.lab

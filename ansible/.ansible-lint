@@ -1,0 +1,5 @@
+---
+# The strictest profile; every rule applies.
+profile: production
+exclude_paths:
+  - .venv/

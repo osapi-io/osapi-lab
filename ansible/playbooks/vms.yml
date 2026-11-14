@@ -1,0 +1,20 @@
+---
+# Clone and run every VM in group_vars/all.yml, each under its own launchd
+# agent, and add them to the inventory. -e lab_vms_recreate=true deletes and
+# reclones them, which push does after rebuilding the images.
+- name: VMs
+  hosts: hub
+  gather_facts: true
+  gather_subset: [min]
+  environment:
+    PATH: "{{ lab_hub_path }}"
+  tasks:
+    - name: Run {{ item.name }}
+      ansible.builtin.include_role:
+        name: lab_vm
+      vars:
+        lab_vm_entry: "{{ item }}"
+        lab_vm_recreate: "{{ lab_vms_recreate | default(false) }}"
+      loop: "{{ lab_vms }}"
+      loop_control:
+        label: "{{ item.name }}"

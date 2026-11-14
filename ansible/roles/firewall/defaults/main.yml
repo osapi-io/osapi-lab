@@ -1,0 +1,10 @@
+---
+# Admits one program through the macOS application firewall, leaving the
+# firewall on. Reading its state needs no sudo; a change does, so a run that
+# finds the program already admitted never asks.
+
+# Absolute path of the program to admit. Required.
+firewall_app: ""
+# "Block all incoming connections" overrides every per-app allow, so it has to
+# be off for firewall_app to receive anything.
+firewall_allow_incoming: true

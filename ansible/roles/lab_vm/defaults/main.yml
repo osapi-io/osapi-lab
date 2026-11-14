@@ -1,0 +1,9 @@
+---
+# One of the lab's VMs, as group_vars/all.yml lists it: {name, image}. Maps it
+# onto the generic tart_vm role with the lab's names, log path and the jump
+# through the hub. Runs on the hub.
+lab_vm_entry: {}
+# main clones and runs the VM; discover only adds it to the inventory.
+lab_vm_tasks: main
+# Delete and reclone the VM, such as after its image was rebuilt.
+lab_vm_recreate: false
