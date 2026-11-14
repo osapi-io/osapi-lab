@@ -28,6 +28,16 @@ The symptom is a check that fails here but passes in CI, on a file that nobody
 changed. If this occurs, find the version that ran. Do this before you accept
 the failure as real.
 
+## Recipes and Ansible
+
+`just` with no arguments lists each recipe with its description. The list comes
+from the justfile, so it is correct when a page is not. CONTRIBUTING tells when
+to use each recipe.
+
+Run Ansible only through `just`. Do not run `ansible-playbook` from the path.
+The recipes run Ansible through `uv`, so the version is the one that
+`ansible/uv.lock` pins.
+
 ## The lab is real machines
 
 Start with a recipe that CONTRIBUTING marks as one that changes nothing. If a
