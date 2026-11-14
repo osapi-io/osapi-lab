@@ -5,5 +5,6 @@
 lab_vm_entry: {}
 # main clones and runs the VM; discover only adds it to the inventory.
 lab_vm_tasks: main
-# Delete and reclone the VM, such as after its image was rebuilt.
+# Reclone the VM even when it was cloned from the image it should run. It is
+# recloned anyway whenever that image changes.
 lab_vm_recreate: false

@@ -1,10 +1,32 @@
 ---
+- name: Name what the VM should be cloned from
+  ansible.builtin.set_fact:
+    lab_vm_wanted: "img-{{ lab_vm_entry.image }}-{{ lab_build_tag }} {{ lab_build_fingerprint }}"
+
 - name: Check there is a tagged image to clone
   when: lab_vm_tasks == 'main'
   ansible.builtin.assert:
     that: lab_build_tag | length > 0
     fail_msg: No tagged build in .lab/bin to clone from. Run `just build images` first.
     quiet: true
+
+# What the VM should be cloned from: the image and the source fingerprint. The
+# hub records what it was cloned from; a VM that differs is recloned.
+- name: Read what the VM was cloned from {{ lab_vm_entry.name }}
+  when: lab_vm_tasks == 'main'
+  ansible.builtin.command: cat {{ lab_hub_state_abs }}/vms/{{ lab_vm_entry.name }}.source
+  register: lab_vm_source
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+# The VM's launchd agent logs here, so it exists before the agent does.
+- name: Create the hub's log directory
+  when: lab_vm_tasks == 'main'
+  ansible.builtin.file:
+    path: "{{ lab_hub_state_abs }}/log"
+    state: directory
+    mode: "0700"
 
 - name: Run tart_vm for {{ lab_vm_entry.name }}
   ansible.builtin.include_role:
@@ -13,7 +35,9 @@
   vars:
     tart_vm_name: "lab-{{ lab_vm_entry.name }}"
     tart_vm_source: "img-{{ lab_vm_entry.image }}-{{ lab_build_tag }}"
-    tart_vm_recreate: "{{ lab_vm_recreate }}"
+    tart_vm_recreate: >-
+      {{ (lab_vm_recreate | bool)
+         or (lab_vm_tasks == 'main' and (lab_vm_source.stdout | default('')) != lab_vm_wanted) }}
     tart_vm_launchd_label: "io.osapi.lab.vm.{{ lab_vm_entry.name }}"
     tart_vm_log: "{{ lab_hub_state_abs }}/log/vm-{{ lab_vm_entry.name }}.log"
     tart_vm_inventory_name: "{{ lab_vm_entry.name }}"
@@ -24,3 +48,18 @@
     tart_vm_ssh_args: >-
       -o ProxyJump={{ (ansible_user ~ '@') if ansible_user is defined else '' }}{{ ansible_host }}
       -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
+
+- name: Record what the VM was cloned from {{ lab_vm_entry.name }}
+  when: lab_vm_tasks == 'main'
+  block:
+    - name: Create the VM records directory
+      ansible.builtin.file:
+        path: "{{ lab_hub_state_abs }}/vms"
+        state: directory
+        mode: "0700"
+
+    - name: Write the record {{ lab_vm_entry.name }}
+      ansible.builtin.copy:
+        dest: "{{ lab_hub_state_abs }}/vms/{{ lab_vm_entry.name }}.source"
+        content: "{{ lab_vm_wanted }}"
+        mode: "0644"

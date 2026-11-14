@@ -74,8 +74,9 @@ machines.
 | Run this machine as an agent too               | `just agent`              | this machine           |
 
 "Asks sudo" is the hub's sudo password: its firewall has to admit each new
-build. `push` also reclones every VM, so anything changed inside one is lost.
-`just` alone lists every recipe, these and the rest.
+build. When your osapi checkout changed, `push` reclones every VM, so anything
+changed inside one is lost; when it did not, `push` changes nothing. `just`
+alone lists every recipe, these and the rest.
 
 ### Reading `just list`
 

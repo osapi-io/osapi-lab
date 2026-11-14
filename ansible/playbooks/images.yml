@@ -3,8 +3,9 @@
 # .lab/bin baked in. Each is named img-<image>-<tag>, the tag being the build's
 # short commit with -dirty for uncommitted changes.
 #
-# A clean tag whose image exists is skipped: it is the same code. A dirty tag is
-# always rebuilt, since its contents can change under the same commit.
+# An image is built when it is missing or was baked from a different source
+# than this build's: the hub keeps each image's build fingerprint beside it, so
+# a dirty tree is rebuilt only when it has changed since.
 #   -e lab_images_rebuild=true   rebuild every image regardless
 #   -e lab_images_prune=true     delete tagged images other than this build's
 - name: Images
@@ -26,21 +27,38 @@
       changed_when: false
       check_mode: false
 
+    - name: Read the fingerprint each image was baked from
+      ansible.builtin.command: cat {{ lab_hub_state_abs }}/images/img-{{ item }}-{{ lab_build_tag }}.fingerprint
+      loop: "{{ lab_vms | map(attribute='image') | unique | list }}"
+      register: images_baked
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    # Stale: baked from another source. Missing: deleted from Tart, whatever its
+    # record says.
     - name: Choose the images to build
       vars:
         images_all: "{{ lab_vms | map(attribute='image') | unique | list }}"
-        images_rebuild: "{{ (lab_images_rebuild | default(false) | bool) or lab_build_tag.endswith('-dirty') }}"
-        images_current: >-
-          {{ images_present.stdout_lines
-             | select('match', '^img-.*-' ~ lab_build_tag ~ '$')
-             | map('regex_replace', '^img-', '')
-             | map('regex_replace', '-' ~ lab_build_tag ~ '$', '')
-             | list }}
+        images_stale: >-
+          {{ images_baked.results | rejectattr('stdout', 'equalto', lab_build_fingerprint)
+             | map(attribute='item') | list }}
+        images_missing: >-
+          {{ images_all | reject('in', images_present.stdout_lines
+                                       | map('regex_replace', '^img-', '')
+                                       | map('regex_replace', '-' ~ lab_build_tag ~ '$', '') | list) | list }}
       ansible.builtin.set_fact:
         images_wanted: >-
-          {{ images_all if images_rebuild else (images_all | reject('in', images_current) | list) }}
+          {{ images_all if (lab_images_rebuild | default(false) | bool)
+             else (images_stale + images_missing) | unique | list }}
 
   tasks:
+    - name: Create the image records directory
+      ansible.builtin.file:
+        path: "{{ lab_hub_state_abs }}/images"
+        state: directory
+        mode: "0700"
+
     - name: Copy the linux build to the hub
       when: images_wanted | length > 0
       ansible.builtin.copy:
@@ -69,6 +87,13 @@
           osapi_binary: "{{ lab_hub_state_abs }}/bin/osapi-linux-arm64"
           image_tag: "{{ lab_build_tag }}"
           revision: "{{ lab_build_revision }}"
+
+    - name: Record the fingerprint each image was baked from
+      ansible.builtin.copy:
+        dest: "{{ lab_hub_state_abs }}/images/img-{{ item }}-{{ lab_build_tag }}.fingerprint"
+        content: "{{ lab_build_fingerprint }}"
+        mode: "0644"
+      loop: "{{ images_wanted }}"
 
     # Only img- images: lab-<name> is a VM, and the untagged lab-<image> images
     # belong to the justfile.
