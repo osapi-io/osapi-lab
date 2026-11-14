@@ -9,3 +9,15 @@ updates:
       default-days: 7
     commit-message:
       prefix: chore
+
+  # ansible/uv.lock pins Ansible and ansible-lint. Without an entry here nothing
+  # bumps them and none of them raises an alert.
+  - package-ecosystem: "uv"
+    directory: "/ansible"
+    schedule:
+      interval: "daily"
+    cooldown:
+      default-days: 7
+      semver-major-days: 14
+    commit-message:
+      prefix: chore

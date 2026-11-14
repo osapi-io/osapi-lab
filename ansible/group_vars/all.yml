@@ -1,0 +1,60 @@
+---
+# The lab's VMs. The name is the VM's hostname and its agent's hostname; the
+# image is the Packer build it is cloned from (lab-<image> on the hub).
+lab_vms:
+  - name: ubuntu-1
+    image: ubuntu
+  - name: debian-1
+    image: debian
+  - name: fedora-1
+    image: fedora
+
+# Images built by packer/lab.pkr.hcl. Ubuntu and Debian are osapi's debian
+# platform; anything else gets IGNORE_LINUX so the agent starts at all.
+lab_debian_family: [ubuntu, debian]
+
+# The repository root and its gitignored state, on the machine running Ansible.
+lab_root: "{{ playbook_dir | dirname | dirname }}"
+lab_state: "{{ lab_root }}/.lab"
+lab_ssh_key: "{{ lab_state }}/ssh/id_ed25519"
+
+# The account the Cirrus Labs base images ship with.
+lab_vm_user: admin
+
+# Every osapi process in the lab uses osapi's default ports and namespace.
+lab_nats_port: 4222
+lab_api_port: 8080
+
+# The lab's secrets, one file each under .lab/secrets/ on the machine running
+# Ansible. The secrets role creates them; nothing else writes them. Lookups are
+# lazy, so these resolve only where a template or task uses them.
+lab_secrets_dir: "{{ lab_state }}/secrets"
+lab_nats_password: "{{ lookup('ansible.builtin.file', lab_secrets_dir ~ '/nats_password') }}"
+lab_signing_key: "{{ lookup('ansible.builtin.file', lab_secrets_dir ~ '/signing_key') }}"
+lab_token: "{{ lookup('ansible.builtin.file', lab_secrets_dir ~ '/token') }}"
+lab_agent_dummy_key: "{{ lookup('ansible.builtin.file', lab_secrets_dir ~ '/agent_dummy_key') }}"
+
+# The hub, as the plays that run elsewhere refer to it.
+lab_hub: "{{ groups['hub'][0] }}"
+
+# lab_hub_state with ~ expanded, for plays on the hub that gathered facts.
+lab_hub_state_abs: "{{ lab_hub_state | regex_replace('^~', ansible_facts.env.HOME) }}"
+
+# The last build's tag (short commit, -dirty for uncommitted changes) and its
+# description, from .lab/bin. Images are named img-<image>-<tag>; the img-
+# prefix keeps them apart from the VMs, lab-<name>.
+# Empty when nothing has been built here yet.
+lab_build_tag: "{{ lookup('ansible.builtin.file', lab_state ~ '/bin/TAG', errors='ignore') | default('', true) }}"
+lab_build_revision: "{{ lookup('ansible.builtin.file', lab_state ~ '/bin/REVISION', errors='ignore') | default('', true) }}"
+
+# PATH for commands on the hub. A non-interactive SSH session on a Mac has no
+# Homebrew or mise on PATH. Until facts are gathered (the gathering itself runs
+# with the play's environment) the system PATH is enough.
+lab_hub_path_dirs:
+  - "{{ ansible_facts.env.HOME }}/.local/bin"
+  - "{{ ansible_facts.env.HOME }}/.homebrew/bin"
+  - /opt/homebrew/bin
+  - /usr/local/bin
+lab_hub_path: >-
+  {{ ((lab_hub_path_dirs + [ansible_facts.env.PATH]) | join(':'))
+     if 'env' in ansible_facts else '/usr/bin:/bin:/usr/sbin:/sbin' }}

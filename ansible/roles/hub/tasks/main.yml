@@ -1,0 +1,57 @@
+---
+- name: Find the hub's home
+  ansible.builtin.command: printenv HOME
+  register: hub_home
+  changed_when: false
+  check_mode: false
+
+- name: Resolve the hub's state directory
+  ansible.builtin.set_fact:
+    hub_state: "{{ hub_state_dir | regex_replace('^~', hub_home.stdout) }}"
+
+- name: Create the hub's directories
+  ansible.builtin.file:
+    path: "{{ hub_state }}/{{ item }}"
+    state: directory
+    mode: "0700"
+  loop: [bin, config, log]
+
+# copy writes a temporary file and renames it over the target, so the running
+# binary keeps its own inode; macOS kills one whose bytes change in place.
+- name: Copy the darwin build
+  ansible.builtin.copy:
+    src: "{{ lab_state }}/bin/osapi-darwin-arm64"
+    dest: "{{ hub_state }}/bin/osapi-darwin-arm64"
+    mode: "0755"
+  register: hub_binary
+
+- name: Render the hub's config
+  ansible.builtin.template:
+    src: hub.yaml.j2
+    dest: "{{ hub_state }}/config/hub.yaml"
+    mode: "0600"
+  register: hub_config
+
+- name: Let agents reach NATS through the firewall
+  ansible.builtin.include_role:
+    name: firewall
+    apply:
+      tags: [firewall]
+  vars:
+    firewall_app: "{{ hub_state }}/bin/osapi-darwin-arm64"
+  tags: [firewall]
+
+- name: Run NATS and the controller under launchd
+  ansible.builtin.include_role:
+    name: launchd
+  vars:
+    launchd_label: "{{ hub_label_prefix }}.{{ item.name }}"
+    launchd_program_arguments: "{{ [hub_state ~ '/bin/osapi-darwin-arm64', '-f', hub_state ~ '/config/hub.yaml'] + item.command }}"
+    launchd_working_directory: "{{ hub_state }}"
+    launchd_log: "{{ hub_state }}/log/{{ item.name }}.log"
+    launchd_restart: "{{ hub_binary is changed or hub_config is changed or (hub_restart | default(false) | bool) }}"
+  loop:
+    - { name: nats, command: [nats, server, start] }
+    - { name: controller, command: [controller, start] }
+  loop_control:
+    label: "{{ item.name }}"

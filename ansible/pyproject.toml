@@ -1,0 +1,18 @@
+[project]
+name = "osapi-lab-ansible"
+version = "0"
+description = "Ansible for osapi-lab, run through uv from this directory"
+requires-python = ">=3.12"
+dependencies = [
+  # The full package, not ansible-core: it bundles community.general and
+  # community.crypto, which the roles use.
+  "ansible",
+]
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = [
+    "ansible-lint>=26.11.0",
+]

@@ -1,0 +1,17 @@
+---
+# One launchd agent in the connecting user's GUI session. An agent, not a
+# daemon: a daemon starts with no HOME, and the programs here (osapi's state
+# directory, Tart's ~/.tart) need it.
+
+# Reverse-DNS name, such as io.osapi.lab.nats. Required.
+launchd_label: ""
+# The program and its arguments, one list item each. Required.
+launchd_program_arguments: []
+launchd_working_directory: ""
+# stdout and stderr both go here when set.
+launchd_log: ""
+# Restart the program whenever it exits.
+launchd_keep_alive: true
+# Restart it now even when the plist did not change, such as after its binary
+# or config did.
+launchd_restart: false

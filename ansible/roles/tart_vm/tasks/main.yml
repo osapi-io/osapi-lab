@@ -1,0 +1,64 @@
+---
+- name: Check the tart_vm arguments
+  ansible.builtin.assert:
+    that:
+      - tart_vm_name | length > 0
+      - tart_vm_source | length > 0
+    quiet: true
+
+# launchd runs the agent with a minimal PATH, so it gets Tart's full path.
+- name: Find tart
+  ansible.builtin.command: which tart
+  register: tart_vm_tart
+  changed_when: false
+  check_mode: false
+
+- name: Delete to clone again {{ tart_vm_name }}
+  when: tart_vm_recreate | bool
+  ansible.builtin.shell: |
+    launchctl bootout "gui/$(id -u)/{{ tart_vm_launchd_label }}" 2>/dev/null || true
+    tart stop {{ tart_vm_name }} 2>/dev/null || true
+    tart delete {{ tart_vm_name }} 2>/dev/null || true
+  changed_when: true
+
+- name: List the VMs
+  ansible.builtin.command: tart list --quiet
+  register: tart_vm_list
+  changed_when: false
+  check_mode: false
+
+- name: Clone {{ tart_vm_name }}
+  when: tart_vm_name not in tart_vm_list.stdout_lines
+  ansible.builtin.command: tart clone {{ tart_vm_source }} {{ tart_vm_name }}
+  changed_when: true
+
+# A VM started some other way, such as `tart run` from a shell, would make the
+# agent's own `tart run` fail. Stop it first, once, so launchd owns it.
+- name: Check whether launchd runs {{ tart_vm_name }}
+  ansible.builtin.shell: launchctl print "gui/$(id -u)/{{ tart_vm_launchd_label }}"
+  register: tart_vm_loaded
+  changed_when: false
+  check_mode: false
+  failed_when: false
+
+- name: Stop so launchd can start it {{ tart_vm_name }}
+  when: tart_vm_loaded.rc != 0
+  ansible.builtin.command: tart stop {{ tart_vm_name }}
+  register: tart_vm_stop
+  changed_when: tart_vm_stop.rc == 0
+  failed_when: false
+
+- name: Run under launchd {{ tart_vm_name }}
+  ansible.builtin.include_role:
+    name: launchd
+  vars:
+    launchd_label: "{{ tart_vm_launchd_label }}"
+    launchd_program_arguments:
+      - "{{ tart_vm_tart.stdout }}"
+      - run
+      - --no-graphics
+      - "{{ tart_vm_name }}"
+    launchd_log: "{{ tart_vm_log }}"
+
+- name: Add to the inventory {{ tart_vm_name }}
+  ansible.builtin.include_tasks: discover.yml

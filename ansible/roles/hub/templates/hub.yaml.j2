@@ -1,20 +1,20 @@
-# The hub: osapi's embedded NATS server and the controller, run on the Mac mini.
-# `just render` fills the ${...} placeholders from .lab/secrets.env and writes
-# the result to .lab/config/hub.yaml. Bucket and stream settings follow
-# configs/osapi.yaml in the osapi repository; most of them have no default.
+# {{ ansible_managed }}
+# The hub: osapi's embedded NATS server and the controller. Bucket and stream
+# settings follow configs/osapi.yaml in the osapi repository; most of them have
+# no default.
 
 controller:
   client:
     url: http://localhost:8080
     security:
-      bearer_token: ${LAB_TOKEN}
+      bearer_token: {{ lab_token }}
   ui:
     enabled: true
   api:
     port: 8080
     job_timeout: 30s
     security:
-      signing_key: ${LAB_SIGNING_KEY}
+      signing_key: {{ lab_signing_key }}
       cors:
         allow_origins: []
   nats:
@@ -25,7 +25,7 @@ controller:
     auth:
       type: user_pass
       username: osapi
-      password: ${LAB_NATS_PASSWORD}
+      password: {{ lab_nats_password }}
   metrics:
     enabled: false
   notifications:
@@ -39,13 +39,13 @@ nats:
     # agents reach it over Tailscale. user_pass auth is what keeps it closed.
     host: 0.0.0.0
     port: 4222
-    store_dir: ${LAB_STATE}/jetstream
+    store_dir: {{ hub_state }}/jetstream
     namespace: osapi
     auth:
       type: user_pass
       users:
         - username: osapi
-          password: ${LAB_NATS_PASSWORD}
+          password: {{ lab_nats_password }}
     metrics:
       enabled: false
   stream:

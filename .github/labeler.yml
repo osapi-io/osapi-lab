@@ -33,10 +33,9 @@ kind/image:
   - changed-files:
       - any-glob-to-any-file: "packer/**"
 
-kind/hub:
+kind/ansible:
   - changed-files:
-      - any-glob-to-any-file: "launchd/**"
-      - any-glob-to-any-file: "config/**"
+      - any-glob-to-any-file: "ansible/**"
 
 kind/toolchain:
   - changed-files:

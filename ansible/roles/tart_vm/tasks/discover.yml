@@ -1,0 +1,16 @@
+---
+- name: Wait for an address for {{ tart_vm_name }}
+  ansible.builtin.command: tart ip --wait {{ tart_vm_wait }} {{ tart_vm_name }}
+  register: tart_vm_ip
+  changed_when: false
+  check_mode: false
+
+- name: Add to the inventory {{ tart_vm_inventory_name }}
+  ansible.builtin.add_host:
+    name: "{{ tart_vm_inventory_name }}"
+    groups: "{{ tart_vm_groups }}"
+    ansible_host: "{{ tart_vm_ip.stdout }}"
+    ansible_user: "{{ tart_vm_user }}"
+    ansible_ssh_private_key_file: "{{ tart_vm_ssh_key | default(omit, true) }}"
+    ansible_ssh_common_args: "{{ tart_vm_ssh_args | default(omit, true) }}"
+  changed_when: false

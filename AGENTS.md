@@ -1,52 +1,45 @@
 # AGENTS.md
 
-Test: `just test` | Fix formatting: `just ready`
+Test: `just test` | Fix formatting: `just ready` | Look at the lab: `just list`
 
-Read @CONTRIBUTING.md first. It covers prerequisites, how a change is checked,
-and the pull request workflow, all of which apply to agents exactly as they
-apply to people. This file carries only what is specific to agents.
+Read @CONTRIBUTING.md first. It covers how a change is made and checked, and the
+pull request workflow, all of which apply to agents exactly as they apply to
+people. This file carries only what is specific to agents.
 
 ## Running tools
 
 Invoke tools through `mise`, not from your path:
 
 ```bash
-mise exec -- just test
+mise exec -- just list
 ```
 
 `mise` is active in a person's shell and supplies the versions `.mise.toml`
 declares. An agent's shell has no activation, so a bare `just` resolves to
 whatever is installed globally, usually an older version.
 
-## The hub is another machine
+Run Ansible only through `just`: a lab recipe, or `just ansible-run <playbook>`
+for any playbook under `ansible/playbooks/`. Both run it through `uv` from
+`ansible/`, so the version is the one `ansible/uv.lock` pins. Never call
+`ansible-playbook` from the path.
 
-Images, VMs and the hub's launchd jobs exist only on the hub. From any other
-machine, run hub recipes through `just hub`, which carries the SSH, `PATH` and
-directory:
+## The lab is real machines
 
-```bash
-mise exec -- just hub ips
-```
+`just list` reads the lab and changes nothing; start there. Every other recipe
+changes the hub or the VMs, and `push` reclones every VM.
 
-`firewall`, and so `hub-install`, `hub-restart`, `restart` and `push`, can ask
-for sudo on the hub. Without a terminal it stops with "needs sudo" rather than
-hanging. Hand that step to the person rather than working around it.
-
-## A change is checked on a running lab
-
-`just test` checks formatting only.
-[Making changes](CONTRIBUTING.md#making-changes) says what to run for each kind
-of change. Show `osapi client agent list` afterwards and say in the PR what you
-ran.
-
-Machine names come from `lab.env`, never from a committed file. Before
-committing, check that no hostname, tailnet address or home path entered one.
+`push`, `deploy` and `site` stop for the person's sudo password on the hub. Hand
+those runs to the person rather than working around the prompt.
 
 ## Never print secrets
 
-`.lab/secrets.env`, `.lab/config/` and `.lab/ssh/` hold the NATS password, the
-JWT signing key, an admin token and the VMs' SSH key. Do not cat, copy or paste
-them into output, issues or PRs.
+`.lab/secrets/`, `.lab/ssh/` and `.lab/config/` hold the NATS password, the JWT
+signing key, an admin token and the VMs' SSH key. Do not cat, copy or paste them
+into output, issues or PRs.
+
+Machine names live only in `ansible/inventory.yml`, which is gitignored. Before
+committing, check no hostname, tailnet address or home path entered a committed
+file.
 
 ## Where the rules come from
 

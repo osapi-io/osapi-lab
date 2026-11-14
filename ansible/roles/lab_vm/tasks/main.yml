@@ -1,0 +1,26 @@
+---
+- name: Check there is a tagged image to clone
+  when: lab_vm_tasks == 'main'
+  ansible.builtin.assert:
+    that: lab_build_tag | length > 0
+    fail_msg: No tagged build in .lab/bin to clone from. Run `just build images` first.
+    quiet: true
+
+- name: Run tart_vm for {{ lab_vm_entry.name }}
+  ansible.builtin.include_role:
+    name: tart_vm
+    tasks_from: "{{ lab_vm_tasks }}"
+  vars:
+    tart_vm_name: "lab-{{ lab_vm_entry.name }}"
+    tart_vm_source: "img-{{ lab_vm_entry.image }}-{{ lab_build_tag }}"
+    tart_vm_recreate: "{{ lab_vm_recreate }}"
+    tart_vm_launchd_label: "io.osapi.lab.vm.{{ lab_vm_entry.name }}"
+    tart_vm_log: "{{ lab_hub_state_abs }}/log/vm-{{ lab_vm_entry.name }}.log"
+    tart_vm_inventory_name: "{{ lab_vm_entry.name }}"
+    tart_vm_groups: [vms]
+    tart_vm_user: "{{ lab_vm_user }}"
+    tart_vm_ssh_key: "{{ lab_ssh_key }}"
+    # The VMs are on the hub's vmnet subnet, reachable only through the hub.
+    tart_vm_ssh_args: >-
+      -o ProxyJump={{ (ansible_user ~ '@') if ansible_user is defined else '' }}{{ ansible_host }}
+      -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null

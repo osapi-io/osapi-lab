@@ -1,0 +1,28 @@
+---
+# Copy to inventory.yml (gitignored) and fill in your own machines. This is the
+# only file that names a machine; everything else is committed.
+#
+# The VMs are not listed: the lab_vm role finds them on the hub with `tart ip` and
+# adds them to the inventory for the plays after it. Their names and images are
+# in group_vars/all.yml.
+all:
+  vars:
+    # The osapi checkout the build role compiles, on the machine running
+    # Ansible. Whatever branch it is on, uncommitted changes included.
+    lab_osapi_dir: ~/git/osapi-io/osapi
+
+    # The hub's address as osapi on this machine dials it, such as its tailnet
+    # name. The VMs do not use it; they reach the hub on the vmnet bridge.
+    lab_hub_addr: hub.example.ts.net
+
+  children:
+    hub:
+      hosts:
+        lab-hub:
+          # How SSH reaches the hub: a host, or an alias from ~/.ssh/config.
+          # The VMs are reached by jumping through it.
+          ansible_host: hub.example.ts.net
+          # ansible_user: you
+
+          # Where the hub keeps its builds, configs, logs and NATS data.
+          lab_hub_state: ~/.osapi-lab

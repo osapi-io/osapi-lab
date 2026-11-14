@@ -1,0 +1,81 @@
+---
+# Build the images the VMs are cloned from, on the hub, with the build in
+# .lab/bin baked in. Each is named img-<image>-<tag>, the tag being the build's
+# short commit with -dirty for uncommitted changes.
+#
+# A clean tag whose image exists is skipped: it is the same code. A dirty tag is
+# always rebuilt, since its contents can change under the same commit.
+#   -e lab_images_rebuild=true   rebuild every image regardless
+#   -e lab_images_prune=true     delete tagged images other than this build's
+- name: Images
+  hosts: hub
+  gather_facts: true
+  gather_subset: [min]
+  environment:
+    PATH: "{{ lab_hub_path }}"
+  pre_tasks:
+    - name: Check there is a build to bake
+      ansible.builtin.assert:
+        that: lab_build_tag | length > 0
+        fail_msg: No tagged build in .lab/bin. Run playbooks/build.yml first.
+        quiet: true
+
+    - name: List the images on the hub
+      ansible.builtin.command: tart list --quiet --source local
+      register: images_present
+      changed_when: false
+      check_mode: false
+
+    - name: Choose the images to build
+      vars:
+        images_all: "{{ lab_vms | map(attribute='image') | unique | list }}"
+        images_rebuild: "{{ (lab_images_rebuild | default(false) | bool) or lab_build_tag.endswith('-dirty') }}"
+        images_current: >-
+          {{ images_present.stdout_lines
+             | select('match', '^img-.*-' ~ lab_build_tag ~ '$')
+             | map('regex_replace', '^img-', '')
+             | map('regex_replace', '-' ~ lab_build_tag ~ '$', '')
+             | list }}
+      ansible.builtin.set_fact:
+        images_wanted: >-
+          {{ images_all if images_rebuild else (images_all | reject('in', images_current) | list) }}
+
+  tasks:
+    - name: Copy the linux build to the hub
+      when: images_wanted | length > 0
+      ansible.builtin.copy:
+        src: "{{ lab_state }}/bin/osapi-linux-arm64"
+        dest: "{{ lab_hub_state_abs }}/bin/osapi-linux-arm64"
+        mode: "0755"
+
+    # Packer's -force does not reach the Tart plugin, whose clone refuses to
+    # overwrite an image. A VM is a full clone, so deleting its image is safe.
+    - name: Delete the images being rebuilt
+      ansible.builtin.command: tart delete img-{{ item }}-{{ lab_build_tag }}
+      loop: "{{ images_wanted }}"
+      when: ('img-' ~ item ~ '-' ~ lab_build_tag) in images_present.stdout_lines
+      changed_when: true
+
+    - name: Build the images
+      when: images_wanted | length > 0
+      ansible.builtin.include_role:
+        name: packer
+      vars:
+        packer_template_dir: "{{ lab_root }}/packer"
+        packer_dest: "{{ lab_hub_state_abs }}/packer"
+        packer_only: "{{ images_wanted | map('regex_replace', '^', 'tart-cli.') | list }}"
+        packer_vars:
+          ssh_pubkey: "{{ lookup('ansible.builtin.file', lab_ssh_key ~ '.pub') }}"
+          osapi_binary: "{{ lab_hub_state_abs }}/bin/osapi-linux-arm64"
+          image_tag: "{{ lab_build_tag }}"
+          revision: "{{ lab_build_revision }}"
+
+    # Only img- images: lab-<name> is a VM, and the untagged lab-<image> images
+    # belong to the justfile.
+    - name: Delete tagged images from other builds
+      when: lab_images_prune | default(false) | bool
+      ansible.builtin.command: tart delete {{ item }}
+      loop: >-
+        {{ images_present.stdout_lines | select('match', '^img-')
+           | reject('match', '^img-.*-' ~ lab_build_tag ~ '$') | list }}
+      changed_when: true

@@ -1,0 +1,15 @@
+# {{ ansible_managed }}
+# `osapi client ...` on this machine, against the hub's API. Client commands
+# call the controller over HTTP and never touch NATS. The signing key and NATS
+# port are throwaway values osapi's validation requires in every file.
+
+controller:
+  client:
+    url: http://{{ lab_hub_addr }}:8080
+    security:
+      bearer_token: {{ lab_token }}
+  api:
+    security:
+      signing_key: {{ lab_agent_dummy_key }}
+  nats:
+    port: 4222

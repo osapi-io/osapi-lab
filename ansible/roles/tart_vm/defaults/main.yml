@@ -1,0 +1,26 @@
+---
+# One Tart VM on a Mac: cloned from an image, run by a launchd agent so it comes
+# back when the host reboots, and added to the inventory under its own name.
+# tasks_from: discover skips the clone and the agent, and only finds the VM's
+# address and adds it.
+
+# The VM's name in Tart. Required.
+tart_vm_name: ""
+# The local image or OCI reference it is cloned from. Required unless discover.
+tart_vm_source: ""
+tart_vm_launchd_label: "tart.vm.{{ tart_vm_name }}"
+# Where `tart run` logs; empty for nowhere.
+tart_vm_log: ""
+# Seconds to wait for the VM to get an address.
+tart_vm_wait: 120
+
+# How the VM is added to the inventory.
+tart_vm_inventory_name: "{{ tart_vm_name }}"
+tart_vm_groups: [tart_vms]
+tart_vm_user: admin
+tart_vm_ssh_key: ""
+# Extra SSH arguments, such as a ProxyJump through this host.
+tart_vm_ssh_args: ""
+# Delete the VM and clone it again from tart_vm_source, such as after the image
+# was rebuilt. Anything changed inside the VM is lost.
+tart_vm_recreate: false

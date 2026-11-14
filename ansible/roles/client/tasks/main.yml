@@ -1,0 +1,32 @@
+---
+- name: Create the config directory
+  ansible.builtin.file:
+    path: "{{ lab_state }}/config"
+    state: directory
+    mode: "0700"
+
+- name: Render the client config
+  ansible.builtin.template:
+    src: client.yaml.j2
+    dest: "{{ lab_state }}/config/client.yaml"
+    mode: "0600"
+
+# A remote agent uses its own hostname and dials the hub's tailnet address.
+- name: Render the remote agent config
+  ansible.builtin.template:
+    src: "{{ lab_root }}/ansible/roles/agent/templates/agent.yaml.j2"
+    dest: "{{ lab_state }}/config/remote.yaml"
+    mode: "0600"
+  vars:
+    agent_node: ""
+    agent_distro: "{{ client_distro }}"
+    agent_nats_host: "{{ lab_hub_addr }}"
+
+# `ssh -F .lab/ssh/config <vm>` reaches a VM through the hub; scp and rsync
+# take the same file. Written only when this run found the VMs.
+- name: Write the lab's SSH config
+  when: groups['vms'] | default([]) | length > 0
+  ansible.builtin.template:
+    src: ssh_config.j2
+    dest: "{{ lab_state }}/ssh/config"
+    mode: "0600"

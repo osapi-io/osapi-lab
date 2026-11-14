@@ -1,0 +1,85 @@
+---
+# Compiles the osapi checkout at lab_osapi_dir, on the machine running Ansible,
+# for the hub and remote agents (darwin) and the VMs (linux). Whatever branch it
+# is on, uncommitted changes included.
+
+- name: Resolve the checkout
+  ansible.builtin.set_fact:
+    build_dir: "{{ lab_osapi_dir | expanduser }}"
+    build_bin: "{{ lab_state }}/bin"
+
+- name: Create the bin directory
+  ansible.builtin.file:
+    path: "{{ build_bin }}"
+    state: directory
+    mode: "0755"
+
+# REVISION is for people: branch@commit, and whether the tree was dirty. TAG
+# names the images built from it: the short commit, with -dirty when the tree
+# had uncommitted changes.
+- name: Describe the build
+  ansible.builtin.shell:
+    cmd: |
+      sha="$(git rev-parse --short HEAD)"
+      rev="$(git rev-parse --abbrev-ref HEAD)@$sha"
+      tag="$sha"
+      if [ -n "$(git status --porcelain)" ]; then
+        rev="$rev with uncommitted changes"
+        tag="$sha-dirty"
+      fi
+      echo "$rev"
+      echo "$tag"
+    chdir: "{{ build_dir }}"
+  register: build_rev
+  changed_when: false
+  check_mode: false
+
+# osapi embeds ui/dist, so the UI is built first. fetch brings in the shared
+# react recipes, which a fresh checkout does not have. mise supplies the
+# checkout's own toolchain.
+- name: Build the UI
+  ansible.builtin.shell:
+    cmd: |
+      mise trust -q .
+      mise exec -- just fetch > /dev/null
+      mise exec -- just react-deps react-build > /dev/null
+    chdir: "{{ build_dir }}"
+  changed_when: true
+
+# Each binary is built under a new name and moved over the old one: macOS kills
+# a signed binary whose bytes change in place, and a remote agent may be running
+# the darwin one.
+- name: Compile osapi
+  ansible.builtin.shell:
+    cmd: |
+      mise exec -- go build -o "{{ build_bin }}/osapi-{{ item }}-arm64.new" .
+      mv -f "{{ build_bin }}/osapi-{{ item }}-arm64.new" "{{ build_bin }}/osapi-{{ item }}-arm64"
+    chdir: "{{ build_dir }}"
+  environment:
+    CGO_ENABLED: "0"
+    GOOS: "{{ item }}"
+    GOARCH: arm64
+  loop: [darwin, linux]
+  changed_when: true
+
+- name: Record what was built
+  ansible.builtin.copy:
+    dest: "{{ build_bin }}/{{ item.file }}"
+    content: "{{ item.value }}\n"
+    mode: "0644"
+  loop:
+    - { file: REVISION, value: "{{ build_rev.stdout_lines[0] }}" }
+    - { file: TAG, value: "{{ build_rev.stdout_lines[1] }}" }
+  loop_control:
+    label: "{{ item.file }}"
+
+- name: Link osapi to the darwin build
+  ansible.builtin.file:
+    src: osapi-darwin-arm64
+    dest: "{{ build_bin }}/osapi"
+    state: link
+    force: true
+
+- name: Say what was built
+  ansible.builtin.debug:
+    msg: "built {{ build_rev.stdout_lines[0] }}, images tagged {{ build_rev.stdout_lines[1] }}"

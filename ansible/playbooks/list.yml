@@ -1,0 +1,107 @@
+---
+# What the lab is running: each VM's state, address and launchd agent, the
+# image it was cloned from and the osapi build inside it, the images on the hub,
+# and the last build on this machine. Changes nothing.
+- name: Read the hub
+  hosts: hub
+  gather_facts: true
+  gather_subset: [min]
+  environment:
+    PATH: "{{ lab_hub_path }}"
+  tasks:
+    - name: List Tart's VMs and images
+      ansible.builtin.command: tart list --format json --source local
+      register: list_tart
+      changed_when: false
+      check_mode: false
+
+    - name: List the lab's launchd agents
+      ansible.builtin.shell:
+        cmd: set -o pipefail; launchctl list | awk '$3 ~ /^io\.osapi\.lab\./ {print $3}'
+        executable: /bin/bash
+      register: list_launchd
+      changed_when: false
+      check_mode: false
+
+    - name: Find each running VM's address
+      ansible.builtin.command: tart ip lab-{{ item.name }}
+      loop: "{{ lab_vms }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: list_ips
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Add the running VMs to the inventory
+      ansible.builtin.add_host:
+        name: "{{ item.item.name }}"
+        groups: [vms]
+        ansible_host: "{{ item.stdout }}"
+        ansible_user: "{{ lab_vm_user }}"
+        ansible_ssh_private_key_file: "{{ lab_ssh_key }}"
+        ansible_ssh_common_args: >-
+          -o ProxyJump={{ (ansible_user ~ '@') if ansible_user is defined else '' }}{{ ansible_host }}
+          -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5
+      loop: "{{ list_ips.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+      when: item.rc == 0 and item.stdout | length > 0
+      changed_when: false
+
+- name: Read the VMs
+  hosts: vms
+  gather_facts: false
+  tasks:
+    # Images built before images were tagged have no /etc/osapi-lab/image.
+    - name: Read what each VM was built from
+      ansible.builtin.shell:
+        executable: /bin/bash
+        cmd: |
+          set -o pipefail
+          cat /etc/osapi-lab/image 2>/dev/null || true
+          echo "osapi=$(/usr/local/bin/osapi version --json 2>/dev/null | grep -o '"gitVersion": *"[^"]*"' | cut -d'"' -f4)"
+          echo "agent=$(systemctl is-active osapi-agent 2>/dev/null)"
+      register: list_vm
+      changed_when: false
+      check_mode: false
+      ignore_unreachable: true
+
+- name: Show the lab
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    hub: "{{ hostvars[lab_hub] }}"
+    tart: "{{ hub.list_tart.stdout | from_json }}"
+    loaded: "{{ hub.list_launchd.stdout_lines }}"
+  tasks:
+    - name: Show the lab
+      vars:
+        rows: >-
+          {%- set out = [] -%}
+          {%- for vm in lab_vms -%}
+            {%- set t = tart | selectattr('Name', 'equalto', 'lab-' ~ vm.name) | list -%}
+            {%- set ip = (hub.list_ips.results | selectattr('item.name', 'equalto', vm.name) | first).stdout | default('') -%}
+            {%- set raw = (hostvars[vm.name].list_vm.stdout | default('')) if vm.name in hostvars else '' -%}
+            {%- set info = dict(raw.splitlines() | select('search', '=') | map('split', '=', 1)) -%}
+            {%- set _ = out.append('%-10s %-8s %-15s %-8s %-7s %-32s %s' | format(
+                  vm.name,
+                  (t | first).State if t else 'absent',
+                  ip or '-',
+                  'launchd' if ('io.osapi.lab.vm.' ~ vm.name) in loaded else 'manual',
+                  info.agent | default('-'),
+                  info.image | default('(untagged image)' if raw else '-'),
+                  info.osapi | default('-'))) -%}
+          {%- endfor -%}
+          {{ out }}
+        images: >-
+          {{ tart | selectattr('Name', 'match', '^(img|lab)-(' ~ (lab_vms | map(attribute='image') | unique | join('|')) ~ ')(-|$)')
+             | rejectattr('Name', 'match', '^lab-(' ~ (lab_vms | map(attribute='name') | join('|')) ~ ')$')
+             | map(attribute='Name') | sort | list }}
+      ansible.builtin.debug:
+        msg: >-
+          {{ ['%-10s %-8s %-15s %-8s %-7s %-32s %s' | format('VM', 'STATE', 'ADDRESS', 'RUN BY', 'AGENT', 'IMAGE', 'OSAPI')]
+             + rows
+             + ['', 'images on the hub: ' ~ (images | join(', ')),
+                'last build here:   ' ~ ((lab_build_revision ~ ' (tag ' ~ lab_build_tag ~ ')') if lab_build_tag else (lab_build_revision or 'none'))] }}

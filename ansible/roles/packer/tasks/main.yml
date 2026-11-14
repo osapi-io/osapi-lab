@@ -1,0 +1,32 @@
+---
+- name: Check the packer arguments
+  ansible.builtin.assert:
+    that:
+      - packer_template_dir | length > 0
+      - packer_dest | length > 0
+    quiet: true
+
+- name: Copy the template to {{ packer_dest }}
+  ansible.builtin.copy:
+    src: "{{ packer_template_dir }}/"
+    dest: "{{ packer_dest }}/"
+    mode: preserve
+
+- name: Install the template's plugins
+  ansible.builtin.command:
+    cmd: mise exec packer@{{ packer_version }} -- packer init .
+    chdir: "{{ packer_dest }}"
+  register: packer_init
+  changed_when: "'Installed plugin' in packer_init.stdout"
+
+- name: Build {{ packer_only | join(', ') if packer_only else 'every source' }}
+  ansible.builtin.command:
+    chdir: "{{ packer_dest }}"
+    argv: >-
+      {{ ['mise', 'exec', 'packer@' ~ packer_version, '--', 'packer', 'build']
+         + (['-force'] if packer_force else [])
+         + (['-only=' ~ (packer_only | join(','))] if packer_only else [])
+         + (packer_vars | dict2items | map(attribute='key') | zip(packer_vars | dict2items | map(attribute='value'))
+            | map('join', '=') | map('regex_replace', '^', '-var=') | list)
+         + ['.'] }}
+  changed_when: true

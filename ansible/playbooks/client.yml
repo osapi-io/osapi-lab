@@ -1,0 +1,26 @@
+---
+# The configs on this machine: the client's, a remote agent's, and the SSH
+# config that reaches each VM through the hub.
+- name: Find the VMs
+  hosts: hub
+  gather_facts: true
+  gather_subset: [min]
+  environment:
+    PATH: "{{ lab_hub_path }}"
+  tasks:
+    - name: Find {{ item.name }}
+      ansible.builtin.include_role:
+        name: lab_vm
+      vars:
+        lab_vm_entry: "{{ item }}"
+        lab_vm_tasks: discover
+      loop: "{{ lab_vms }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+- name: Client
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - client

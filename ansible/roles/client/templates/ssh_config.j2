@@ -1,0 +1,19 @@
+# {{ ansible_managed }}
+# The lab's VMs, each reached through the hub. Use: ssh -F .lab/ssh/config <vm>
+
+# -F replaces ~/.ssh/config, for this ssh and the jump through the hub, so it is
+# included: the hub may be an alias defined there.
+Include ~/.ssh/config
+{% set hub = hostvars[lab_hub] %}
+{% for vm in groups['vms'] | sort %}
+
+Host {{ vm }}
+  HostName {{ hostvars[vm].ansible_host }}
+  User {{ lab_vm_user }}
+  IdentityFile {{ lab_ssh_key }}
+  ProxyJump {{ (hub.ansible_user ~ '@') if hub.ansible_user is defined else '' }}{{ hub.ansible_host }}
+  # Recloned VMs get new host keys.
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
+  LogLevel ERROR
+{% endfor %}
