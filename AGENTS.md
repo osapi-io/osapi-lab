@@ -1,9 +1,32 @@
 # AGENTS.md
 
-Read @CONTRIBUTING.md first. Its "Run the lab" section tells what each recipe
-does and what it changes. The other sections tell how to make and check a
-change, and how to open a pull request. All of it applies to agents the same as
-to people. This file holds only the rules that are specific to agents.
+Test: `just test` | Before you commit: `just ready`
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) first. It gives:
+
+- the prerequisites and the setup
+- the code style and the test conventions
+- the pull request workflow
+
+These rules apply to agents and to people. This file has only the rules that are
+specific to agents. They apply to each coding agent.
+
+## Run tools
+
+Run tools through `mise`, not from your path:
+
+```bash
+mise exec -- just test
+```
+
+`mise` is active in the shell of a person. It supplies the versions that
+`.mise.toml` declares. The shell of an agent does not activate `mise`. Thus a
+bare `just` runs the version that is installed globally. That version is usually
+older.
+
+The symptom is a check that fails here but passes in CI, on a file that nobody
+changed. If this occurs, find the version that ran. Do this before you accept
+the failure as real.
 
 ## Run the tools
 
@@ -45,25 +68,19 @@ git ignores that file.
 
 ## Where the rules come from
 
-@CONTRIBUTING.md names the specification under "Before you start". If a
-convention here and the specification do not agree, the specification is
-correct. Say so. Do not follow the code.
+[CONTRIBUTING.md](CONTRIBUTING.md#before-you-start) names the design pages. If a
+rule here and a design page do not agree, obey the design page. Say that they do
+not agree. Do not use the code to decide.
 
 ## Commit trailer
 
-When you commit through Claude Code, end the message with:
-
-```
-🤖 Generated with [Claude Code](https://claude.ai/code)
-
-Co-Authored-By: Claude <noreply@anthropic.com>
-```
+When an agent writes a commit, end the commit message with a trailer that names
+the agent. Use the trailer that the documentation of the agent gives.
 
 ## Design pages
 
 **The design is in the design pages.** Write or change the page in
-[osapi-io/specs](https://github.com/osapi-io/specs) before you build. Correct
-the page where the build shows that it is wrong.
-
-A design page in this repository becomes out of date when the code changes. No
-check finds the difference.
+[osapi-io/specs](https://github.com/osapi-io/specs) before you build. If the
+build shows that the page is wrong, correct the page. A design page in this
+repository becomes incorrect when the code changes. No check finds the
+difference.
