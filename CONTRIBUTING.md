@@ -70,6 +70,7 @@ machines.
 | Look at the lab's NATS, as its `cli` user      | `nats stream ls`, `nats kv ls`     | nothing                |
 | Look at the NATS server itself, as `sys`       | `nats-sys server report jetstream` | nothing                |
 | Shell into a VM                                | `just ssh ubuntu-1`                | nothing                |
+| See a request's trace, controller to agent     | http://127.0.0.1:16686 on the hub  | nothing                |
 | Rebuild the fleet from your osapi changes      | `just push`                        | everything; asks sudo  |
 | Copy your changes into the running VMs, faster | `just deploy`                      | hub and VMs; asks sudo |
 | Bring the whole lab back in line with the repo | `just site`                        | everything; asks sudo  |

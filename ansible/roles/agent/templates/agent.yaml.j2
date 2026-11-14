@@ -56,4 +56,6 @@ nats:
 
 telemetry:
   tracing:
-    enabled: false
+    enabled: true
+    exporter: otlp
+    otlp_endpoint: {{ agent_nats_host }}:{{ lab_tracing_otlp_port }}

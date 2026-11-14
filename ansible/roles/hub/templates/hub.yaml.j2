@@ -114,4 +114,6 @@ nats:
 
 telemetry:
   tracing:
-    enabled: false
+    enabled: true
+    exporter: otlp
+    otlp_endpoint: 127.0.0.1:{{ lab_tracing_otlp_port }}

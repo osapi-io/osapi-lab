@@ -45,6 +45,15 @@ lab_nsc_env:
 lab_nats_account: osapi
 lab_nats_resolver: "{{ lab_secrets_dir }}/resolver.conf"
 
+# Jaeger on the hub collects every process's traces: the controller, NATS and
+# each agent send OTLP over gRPC to the OTLP port, and the UI is on the UI port.
+# One collector, because one trace runs from the controller through NATS to an
+# agent.
+lab_tracing_image: jaegertracing/jaeger:2.22.0
+lab_tracing_container: osapi-lab-jaeger
+lab_tracing_otlp_port: 4317
+lab_tracing_ui_port: 16686
+
 # The hub, as the plays that run elsewhere refer to it.
 lab_hub: "{{ groups['hub'][0] }}"
 
