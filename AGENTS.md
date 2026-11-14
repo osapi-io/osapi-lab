@@ -1,7 +1,7 @@
 # AGENTS.md
 
-Read @CONTRIBUTING.md first. Its "Running the lab" section tells what each
-recipe does and what it changes. The other sections tell how to make and check a
+Read @CONTRIBUTING.md first. Its "Run the lab" section tells what each recipe
+does and what it changes. The other sections tell how to make and check a
 change, and how to open a pull request. All of it applies to agents the same as
 to people. This file holds only the rules that are specific to agents.
 
