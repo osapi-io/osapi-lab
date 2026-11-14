@@ -2,3 +2,7 @@
 just = "latest"
 packer = "latest"
 uv = "latest"
+# NATS in operator (JWT) mode: nsc makes its operator, accounts and users.
+nsc = "2.15.0"
+# The nats CLI, for looking at the lab's NATS; .envrc points it at the hub.
+"github:nats-io/natscli" = "0.5.1"

@@ -22,12 +22,21 @@ controller:
     port: 4222
     client_name: osapi-controller
     namespace: osapi
+    # Its own user in osapi's NATS account; osapi nats setup uses it too.
     auth:
-      type: user_pass
-      username: osapi
-      password: {{ lab_nats_password }}
+      type: creds
+      creds_file: {{ hub_state }}/secrets/controller.creds
+  # Metrics have no authentication, so they answer the hub only.
   metrics:
-    enabled: false
+    enabled: true
+    host: 127.0.0.1
+    port: 9090
+  # Agents enroll with a key and every job response is verified against it.
+  # auto_accept, because each push reclones the VMs and they enroll afresh.
+  pki:
+    enabled: true
+    key_dir: {{ hub_state }}/pki
+    auto_accept: true
   notifications:
     enabled: true
     notifier: log
@@ -35,19 +44,23 @@ controller:
 
 nats:
   server:
-    # Every interface: the Tart VMs reach the hub on the vmnet bridge and remote
-    # agents reach it over Tailscale. user_pass auth is what keeps it closed.
+    # Every interface, because the Tart VMs reach the hub on the vmnet bridge
+    # and remote agents over Tailscale. Operator mode refuses any connection
+    # without a user JWT that osapi's account signed.
     host: 0.0.0.0
-    port: 4222
+    port: {{ lab_nats_port }}
     store_dir: {{ hub_state }}/jetstream
     namespace: osapi
     auth:
-      type: user_pass
-      users:
-        - username: osapi
-          password: {{ lab_nats_password }}
+      type: operator
+      # The operator, the system account and each account's JWT, from nsc.
+      resolver_file: {{ hub_state }}/config/resolver.conf
+      # The server's own user, which its setup and heartbeat connect as.
+      creds_file: {{ hub_state }}/secrets/nats.creds
     metrics:
-      enabled: false
+      enabled: true
+      host: 127.0.0.1
+      port: 9092
   stream:
     name: JOBS
     subjects: jobs.>

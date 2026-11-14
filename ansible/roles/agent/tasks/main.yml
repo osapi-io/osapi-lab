@@ -46,6 +46,21 @@
     mode: "0600"
   register: agent_config
 
+- name: Make {{ agent_node }}'s NATS user
+  ansible.builtin.include_role:
+    name: secrets
+    tasks_from: user
+  vars:
+    nats_user: "agent-{{ agent_node }}"
+
+- name: Install {{ agent_node }}'s NATS credentials
+  become: true
+  ansible.builtin.copy:
+    src: "{{ lab_nats_creds_dir }}/agent-{{ agent_node }}.creds"
+    dest: /etc/osapi/nats.creds
+    mode: "0600"
+  register: agent_creds
+
 # osapi's agent exits at startup on a distribution outside its supported list.
 # IGNORE_LINUX is osapi's own override: the agent starts, uses the generic Linux
 # providers, and skips what has none. Only nodes that are not Debian family get
@@ -85,7 +100,7 @@
     enabled: true
     daemon_reload: "{{ agent_dropin_set is changed or agent_dropin_unset is changed }}"
   when: >-
-    agent_binary is changed or agent_config is changed
+    agent_binary is changed or agent_config is changed or agent_creds is changed
     or agent_dropin_set is changed or agent_dropin_unset is changed
     or (agent_restart | bool)
 
