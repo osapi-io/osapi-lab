@@ -46,14 +46,14 @@
     mode: "0600"
   register: agent_config
 
-- name: Make {{ agent_node }}'s NATS user
+- name: Make the NATS user for {{ agent_node }}
   ansible.builtin.include_role:
     name: secrets
     tasks_from: user
   vars:
-    nats_user: "agent-{{ agent_node }}"
+    secrets_nats_user: "agent-{{ agent_node }}"
 
-- name: Install {{ agent_node }}'s NATS credentials
+- name: Install the NATS credentials for {{ agent_node }}
   become: true
   ansible.builtin.copy:
     src: "{{ lab_nats_creds_dir }}/agent-{{ agent_node }}.creds"

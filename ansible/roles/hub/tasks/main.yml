@@ -32,7 +32,7 @@
     name: secrets
     tasks_from: user
   vars:
-    nats_user: "{{ item }}"
+    secrets_nats_user: "{{ item }}"
   loop: [nats, controller]
 
 - name: Copy the hub's NATS credentials

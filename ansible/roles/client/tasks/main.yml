@@ -19,7 +19,7 @@
     name: secrets
     tasks_from: user
   vars:
-    nats_user: cli
+    secrets_nats_user: cli
 
 # The system account's user, which nsc made with the operator. Server-wide
 # commands, such as `nats server report jetstream`, need it; `nats-sys` uses it,
@@ -54,7 +54,7 @@
     name: secrets
     tasks_from: user
   vars:
-    nats_user: agent-remote
+    secrets_nats_user: agent-remote
 
 # A remote agent uses its own hostname and dials the hub's tailnet address.
 - name: Render the remote agent config
