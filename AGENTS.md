@@ -28,28 +28,6 @@ The symptom is a check that fails here but passes in CI, on a file that nobody
 changed. If this occurs, find the version that ran. Do this before you accept
 the failure as real.
 
-## Run the tools
-
-Run tools through `mise`, not from your path:
-
-```bash
-mise exec -- just
-```
-
-`mise` is active in the shell of a person and supplies the versions that
-`.mise.toml` declares. The shell of an agent has no activation. Thus a bare
-`just` uses the version that is installed globally, which is usually older.
-
-`just` with no arguments lists every recipe with its description. The list comes
-from the justfile, so it is current where the prose can be out of date.
-CONTRIBUTING tells when to use each recipe.
-
-Run `just` to find the recipes.
-
-Run Ansible only through `just`. Do not run `ansible-playbook` from the path.
-The recipes run Ansible through `uv`, so the version is the one that
-`ansible/uv.lock` pins.
-
 ## The lab is real machines
 
 Start with a recipe that CONTRIBUTING marks as one that changes nothing. If a
