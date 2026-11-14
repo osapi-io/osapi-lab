@@ -6,7 +6,7 @@
   </picture>
 </p>
 
-<p align="center">A small fleet of real machines to run osapi against.</p>
+<p align="center">A small fleet of real machines to run osapi on.</p>
 
 <p align="center">
   <a href="https://github.com/osapi-io/osapi-lab/actions/workflows/ansible-lint.yml"><img alt="ansible lint" src="https://img.shields.io/github/actions/workflow/status/osapi-io/osapi-lab/ansible-lint.yml?branch=main&style=for-the-badge&label=ansible%20lint"></a>
@@ -17,19 +17,21 @@
 </p>
 
 <p align="center">
-<b>One Mac, a few Linux VMs, and your osapi branch running on all of them.</b>
+<b>One Mac, some Linux VMs, and your osapi branch on all of them.</b>
 </p>
 
 <p align="center">
-Ansible builds your osapi checkout, bakes it into Tart images with Packer, and
-rebuilds the fleet from them, all from your own machine.
+Ansible builds your osapi checkout. Packer puts the build into Tart images. Then
+Ansible rebuilds the fleet from these images. You do all of it from your own
+machine.
 </p>
 
 ## Usage
 
-A Mac is the hub: it runs osapi's NATS server and controller, and a Tart VM per
-Linux distribution, each running an agent. Your machine builds osapi and drives
-everything over SSH; the hub needs no checkout of this repository.
+A Mac is the hub. The hub runs the NATS server and the controller of osapi. It
+also runs one Tart VM for each Linux distribution, and each VM runs an agent.
+Your machine builds osapi and controls all the other machines over SSH. The hub
+does not need a checkout of this repository.
 
 ```
             Mac (hub)                        your machine
@@ -42,14 +44,14 @@ everything over SSH; the hub needs no checkout of this repository.
  ubuntu-1    debian-1    fedora-1        Tart VMs, one agent each
 ```
 
-To run it, see [Running the lab](CONTRIBUTING.md#running-the-lab). How it works,
-and why it is built this way, is in the
-[design doc](https://github.com/osapi-io/specs/blob/main/components/osapi-lab/README.md).
+To run the lab, see [Running the lab](CONTRIBUTING.md#running-the-lab). The
+[design doc](https://github.com/osapi-io/specs/blob/main/components/osapi-lab/README.md)
+tells how the lab works and why it has this design.
 
 ## Contributing
 
-See the [Contributing](CONTRIBUTING.md) guide for how to run the lab, and how a
-change to it is made and checked.
+The [Contributing](CONTRIBUTING.md) guide tells how to run the lab, and how to
+make and check a change to it.
 
 ## License
 

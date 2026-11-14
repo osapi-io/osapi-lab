@@ -1,27 +1,27 @@
 # Contributing
 
-Contributions to osapi-lab are very welcome, but we ask that you read this
-document before submitting a PR. It covers how a change is made and checked, and
-the pull request workflow.
+We welcome contributions to osapi-lab. Before you send a PR, read this document.
+It tells how to make and check a change, and how to open a pull request.
 
 ## Before you start
 
-- Read the [Code of Conduct](CODE_OF_CONDUCT.md). It applies to every
-  interaction in this repo.
+- Read the [Code of Conduct](CODE_OF_CONDUCT.md). It applies to all work and all
+  discussion in this repository.
 
-- **Design docs.** How this repository is built is documented in
+- **Design docs.** The design of this repository is in
   [osapi-io/specs](https://github.com/osapi-io/specs) under
-  `components/osapi-lab/`. Read it before changing behaviour, and change it when
-  you do.
+  `components/osapi-lab/`. Read it before you change the behaviour. When you
+  change the behaviour, change the design doc too.
 
-- **Check existing work.** Is there an existing PR? Are there issues discussing
-  the change you want to make?
+- **Check existing work.** Look for an open PR or an issue about the change that
+  you want to make.
 
 ## Prerequisites
 
 [mise](https://mise.jdx.dev) supplies `just`, `uv` and `packer` at the versions
-`.mise.toml` declares, and [direnv](https://direnv.net) loads `.envrc`. A lab to
-check a change on is set up as [Running the lab](#running-the-lab) describes.
+that `.mise.toml` declares. [direnv](https://direnv.net) loads `.envrc`. To
+check a change, you need a lab. [Running the lab](#running-the-lab) tells how to
+make one.
 
 ### Claude Code
 
@@ -32,23 +32,23 @@ marketplace:
 /plugin install commit-commands@claude-plugins-official
 ```
 
-- **commit-commands.** provides `/commit` and `/commit-push-pr` slash commands
-  that follow the project's commit conventions automatically.
+- **commit-commands.** It gives the `/commit` and `/commit-push-pr` slash
+  commands. These commands follow the commit conventions of the project.
 
 ## Running the lab
 
-You need one to check a change on, and it is how osapi gets run on real machines
-before a release.
+You need a lab to check a change. The lab is also where osapi runs on real
+machines before a release.
 
 ### Set up
 
-On the hub, a Mac on Apple Silicon, with Remote Login on:
+The hub is a Mac on Apple Silicon with Remote Login on. On the hub, run:
 
 ```bash
 brew install cirruslabs/cli/tart mise
 ```
 
-On your machine, in this repository:
+On your machine, in this repository, run:
 
 ```bash
 mise install                                           # just, uv, packer
@@ -57,8 +57,8 @@ direnv allow                                           # `osapi` here talks to t
 just fetch site                                        # everything; asks for the hub's sudo password
 ```
 
-`ansible/inventory.yml` is gitignored and is the only file that names your
-machines.
+`ansible/inventory.yml` is the only file that names your machines. Git ignores
+it.
 
 ### Day to day
 
@@ -77,10 +77,11 @@ machines.
 | Run this machine as an agent too               | `just agent`                       | this machine           |
 | Remove the lab from the hub                    | `just teardown`                    | the hub; asks sudo     |
 
-"Asks sudo" is the hub's sudo password: its firewall has to admit each new
-build. When your osapi checkout changed, `push` reclones every VM, so anything
-changed inside one is lost; when it did not, `push` changes nothing. `just`
-alone lists every recipe, these and the rest.
+"Asks sudo" means that the recipe asks for the sudo password of the hub. The
+firewall of the hub must admit each new build. If your osapi checkout changed,
+`push` reclones every VM, and you lose all changes inside the VMs. If the
+checkout did not change, `push` changes nothing. `just` with no arguments lists
+every recipe, these recipes and all others.
 
 ### Reading `just list`
 
@@ -92,9 +93,9 @@ images on the hub: img-debian-9f0db41f0, img-fedora-9f0db41f0, img-ubuntu-9f0db4
 last build here:   feat/behavior-registration@9f0db41f0 (tag 9f0db41f0)
 ```
 
-A healthy VM is `running`, run by `launchd`, with an `active` agent. Its `IMAGE`
-ends in the tag of the last build here, and its `OSAPI` version carries that
-commit. When they differ:
+A VM in good condition is `running`, `launchd` runs it, and its agent is
+`active`. Its `IMAGE` ends in the tag of the last build here. Its `OSAPI`
+version contains that commit. If they are different, use this table:
 
 | You see                                   | It means                              | Run         |
 | ----------------------------------------- | ------------------------------------- | ----------- |
@@ -105,44 +106,48 @@ commit. When they differ:
 
 ## Making changes
 
-The lab is Ansible under `ansible/`, run through `just`, with Packer templates
-under `packer/`. The
+The lab is Ansible under `ansible/`, and `just` runs it. The Packer templates
+are under `packer/`. The
 [design doc](https://github.com/osapi-io/specs/blob/main/components/osapi-lab/README.md)
-says how the pieces fit; this section says how to change them.
+tells how the parts work together. This section tells how to change them.
 
-**Behaviour goes in a role; a playbook only lists roles.** Roles are the unit
-that gets reused. `packer`, `tart_vm`, `launchd` and `firewall` know nothing
-about osapi: they take their inputs as variables, declared with defaults in
-their `defaults/main.yml`. The osapi roles (`build`, `secrets`, `hub`, `lab_vm`,
-`agent`, `client`) compose them. Keep a new role in the first group unless it
-has to know about osapi.
+**Put behaviour in a role. A playbook only lists roles.** A role is the unit
+that you use again. `packer`, `tart_vm`, `launchd` and `firewall` know nothing
+about osapi. They get their inputs as variables. Each role declares these
+variables with defaults in its `defaults/main.yml`. The osapi roles (`build`,
+`secrets`, `hub`, `lab_vm`, `agent`, `client`) use the first group of roles. Put
+a new role in the first group, unless it must know about osapi.
 
-**A role is safe to run twice.** Every task reports `changed` only when it
-changed something, so a second run of any playbook reports `changed=0`.
+**You can run a role two times safely.** A task reports `changed` only when it
+changed something. Thus the second run of a playbook reports `changed=0`.
 
-**`ansible/inventory.yml` names machines; nothing committed does.** A new
-setting a person has to fill in goes in `inventory.example.yml` with a
-placeholder.
+**Only `ansible/inventory.yml` names machines. No committed file names them.**
+If a person must give a value for a new setting, put the setting in
+`inventory.example.yml` with a placeholder.
 
 ### Checking a change
 
-`just test` runs every check: markdown and justfile formatting, ansible-lint's
-`production` profile (which parses every playbook), and Packer formatting. CI
-runs all but the last. It has no Mac and no VMs, so a change is also run on a
-lab:
+`just test` runs all the checks:
+
+- the format of the markdown and the justfiles
+- the `production` profile of ansible-lint, which parses every playbook
+- the format of the Packer templates
+
+CI runs all the checks but the last one. CI has no Mac and no VMs, so also run
+the change on a lab:
 
 | You changed        | Run                              |
 | ------------------ | -------------------------------- |
 | `packer/`          | `just push`                      |
 | a role or playbook | the playbook that uses it, twice |
 
-The second run of a playbook should report `changed=0`. Then check the lab is
-healthy, as [Reading `just list`](#reading-just-list) describes.
-`just ansible-run <name> --check --diff` shows what a run would change without
-changing it. Say in the PR what you ran.
+The second run of a playbook must report `changed=0`. Then make sure that the
+lab is in good condition, as [Reading `just list`](#reading-just-list) tells.
+`just ansible-run <name> --check --diff` shows what a run will change, but it
+changes nothing. In the PR, say what you ran.
 
-Never commit anything under `.lab/` or `ansible/inventory.yml`. They hold
-secrets and machine names, and are gitignored.
+Do not commit a file under `.lab/` or `ansible/inventory.yml`. They hold secrets
+and machine names. Git ignores them.
 
 ## Before committing
 
@@ -153,42 +158,45 @@ just test
 
 ## Branching
 
-Create a branch from `main` named `type/short-description`, where `type` matches
-the [Conventional Commits] type: `feat/rocky-image`, `fix/deploy-ssh-stdin`.
+Make a branch from `main` with the name `type/short-description`. The `type` is
+the [Conventional Commits] type, for example `feat/rocky-image` or
+`fix/deploy-ssh-stdin`.
 
 ## Commit messages
 
 Follow [Conventional Commits] with the 50/72 rule:
 
-- **Subject line**: max 50 characters, imperative mood, capitalized, no period
-- **Body**: wrap at 72 characters, separated from subject by a blank line
+- **Subject line**: 50 characters or fewer, a command, a capital letter at the
+  start, no period at the end
+- **Body**: wrap at 72 characters, with a blank line between the subject and the
+  body
 - **Format**: `type(scope): description`
 - **Types**: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`
 
 ## Submitting a PR
 
 - **Describe your changes.** Say what changed and why.
-- **Say what you ran on a hub.** A recipe nobody ran has not been checked.
-- **Draft PRs.** Open incomplete work as a draft and start the discussion in a
-  comment.
+- **Say what you ran on a hub.** If nobody ran a recipe, nobody checked it.
+- **Draft PRs.** Open work that is not complete as a draft. Start the discussion
+  in a comment.
 
 ## AI usage
 
-All contributions are subject to the [AI Usage Policy](AI_POLICY.md). Disclose
-the tool you used, and make sure you can explain what your change does without
-the aid of AI tools.
+The [AI Usage Policy](AI_POLICY.md) applies to all contributions. Say which AI
+tool you used. You must be able to tell what your change does without help from
+AI tools.
 
 ## FAQ
 
 > I want to contribute, where do I start?
 
-All kinds of contributions are welcome, whether it's a typo fix or a new image
-or recipe. You can also contribute by upvoting/commenting on issues or helping
-to answer questions.
+We welcome all contributions, for example a typo fix, a new image or a new
+recipe. You can also vote for issues, write comments on issues, or help answer
+questions.
 
 > I'm stuck, where can I get help?
 
-If you have questions, open a [Discussion] on GitHub.
+If you have a question, open a [Discussion] on GitHub.
 
 [claude code]: https://claude.ai/code
 [conventional commits]: https://www.conventionalcommits.org
