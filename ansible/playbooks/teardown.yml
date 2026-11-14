@@ -1,0 +1,95 @@
+---
+# Remove the lab from the hub: the VMs, the NATS server and controller, the
+# trace collector, the firewall entry and the hub's state directory. Safe to
+# run again, and on a hub that never ran the lab.
+#
+# Kept unless asked: the images the VMs are cloned from, which take the
+# longest to rebuild (-e lab_teardown_images=true), and this machine's .lab,
+# which holds the lab's NATS operator and keys (-e lab_teardown_local=true).
+# -K: removing the firewall entry needs sudo.
+- name: Teardown the hub
+  hosts: hub
+  gather_facts: true
+  gather_subset: [min]
+  environment:
+    PATH: "{{ lab_hub_path }}"
+  vars:
+    teardown_labels: >-
+      {{ (lab_vms | map(attribute='name') | map('regex_replace', '^', 'io.osapi.lab.vm.') | list)
+         + ['io.osapi.lab.controller', 'io.osapi.lab.nats'] }}
+    teardown_binary: "{{ lab_hub_state_abs }}/bin/osapi-darwin-arm64"
+  tasks:
+    # bootout first, so launchd does not start a VM or a process again while it
+    # is being removed. The VMs go before NATS, so their agents stop first.
+    - name: Stop {{ item }}
+      ansible.builtin.shell: |
+        launchctl print "gui/$(id -u)/{{ item }}" >/dev/null 2>&1 || exit 0
+        launchctl bootout "gui/$(id -u)/{{ item }}"
+        echo stopped
+      register: teardown_stopped
+      changed_when: "'stopped' in teardown_stopped.stdout"
+      loop: "{{ teardown_labels }}"
+
+    - name: Remove the plist for {{ item }}
+      ansible.builtin.file:
+        path: "{{ ansible_facts.env.HOME }}/Library/LaunchAgents/{{ item }}.plist"
+        state: absent
+      loop: "{{ teardown_labels }}"
+
+    - name: List the Tart VMs and images
+      ansible.builtin.command: tart list --quiet
+      register: teardown_tart
+      changed_when: false
+      check_mode: false
+
+    - name: Delete the VM {{ item }}
+      ansible.builtin.shell: |
+        tart stop {{ item }} 2>/dev/null || true
+        tart delete {{ item }}
+      changed_when: true
+      when: item in teardown_tart.stdout_lines
+      loop: "{{ lab_vms | map(attribute='name') | map('regex_replace', '^', 'lab-') | list }}"
+
+    - name: Delete the image {{ item }}
+      ansible.builtin.command: tart delete {{ item }}
+      changed_when: true
+      when: lab_teardown_images | default(false) | bool
+      loop: "{{ teardown_tart.stdout_lines | select('match', '^img-') | list }}"
+
+    - name: Remove the trace collector
+      ansible.builtin.shell: |
+        docker inspect {{ lab_tracing_container }} >/dev/null 2>&1 || exit 0
+        docker rm -f {{ lab_tracing_container }}
+        echo removed
+      register: teardown_tracing
+      changed_when: "'removed' in teardown_tracing.stdout"
+
+    - name: Check the firewall entry for the osapi build
+      ansible.builtin.command: /usr/libexec/ApplicationFirewall/socketfilterfw --getappblocked {{ teardown_binary }}
+      register: teardown_firewall
+      changed_when: false
+      check_mode: false
+      failed_when: false
+
+    - name: Remove the firewall entry for the osapi build
+      when:
+        - teardown_firewall.rc == 0
+        - "'not part of' not in teardown_firewall.stdout"
+      become: true
+      ansible.builtin.command: /usr/libexec/ApplicationFirewall/socketfilterfw --remove {{ teardown_binary }}
+      changed_when: true
+
+    - name: Remove the hub's state directory
+      ansible.builtin.file:
+        path: "{{ lab_hub_state_abs }}"
+        state: absent
+
+- name: Teardown this machine
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Remove .lab
+      when: lab_teardown_local | default(false) | bool
+      ansible.builtin.file:
+        path: "{{ lab_state }}"
+        state: absent

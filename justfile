@@ -64,6 +64,11 @@ deploy:
 site:
     just ansible-run site -K
 
+# Remove the lab from the hub; keeps the images and .lab (asks for sudo)
+[group('lab')]
+teardown:
+    just ansible-run teardown -K
+
 # Build osapi from your checkout into .lab/bin
 [group('lab')]
 build:
