@@ -1,0 +1,18 @@
+# The CLI on a remote machine: `osapi client ...` against the hub's API. Client
+# commands call the controller over HTTP and never touch NATS, so this is only
+# the API's address and the lab's admin token. `just render` writes it to
+# .lab/config/client.yaml on the hub; `just remote-client` copies it here.
+#
+# The signing key and NATS port are throwaway values that osapi's validation
+# requires in every file; the CLI uses neither.
+
+controller:
+  client:
+    url: http://${LAB_HUB_ADDR}:8080
+    security:
+      bearer_token: ${LAB_TOKEN}
+  api:
+    security:
+      signing_key: ${LAB_AGENT_DUMMY_KEY}
+  nats:
+    port: 4222

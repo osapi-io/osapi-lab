@@ -1,0 +1,8 @@
+# The lab's VMs. One per line: the node name, which is the VM's hostname and
+# its osapi agent hostname, then the image it is cloned from (packer/lab.pkr.hcl
+# builds lab-ubuntu, lab-debian and lab-fedora). Add a line, then `just up deploy`.
+#
+# name      image
+ubuntu-1    ubuntu
+debian-1    debian
+fedora-1    fedora
