@@ -1,0 +1,104 @@
+# The hub: osapi's embedded NATS server and the controller, run on the Mac mini.
+# `just render` fills the ${...} placeholders from .lab/secrets.env and writes
+# the result to .lab/config/hub.yaml. Bucket and stream settings follow
+# configs/osapi.yaml in the osapi repository; most of them have no default.
+
+controller:
+  client:
+    url: http://localhost:8080
+    security:
+      bearer_token: ${LAB_TOKEN}
+  ui:
+    enabled: true
+  api:
+    port: 8080
+    job_timeout: 30s
+    security:
+      signing_key: ${LAB_SIGNING_KEY}
+      cors:
+        allow_origins: []
+  nats:
+    host: localhost
+    port: 4222
+    client_name: osapi-controller
+    namespace: osapi
+    auth:
+      type: user_pass
+      username: osapi
+      password: ${LAB_NATS_PASSWORD}
+  metrics:
+    enabled: false
+  notifications:
+    enabled: true
+    notifier: log
+    renotify_interval: 5m
+
+nats:
+  server:
+    # Every interface: the Tart VMs reach the hub on the vmnet bridge and remote
+    # agents reach it over Tailscale. user_pass auth is what keeps it closed.
+    host: 0.0.0.0
+    port: 4222
+    store_dir: ${LAB_STATE}/jetstream
+    namespace: osapi
+    auth:
+      type: user_pass
+      users:
+        - username: osapi
+          password: ${LAB_NATS_PASSWORD}
+    metrics:
+      enabled: false
+  stream:
+    name: JOBS
+    subjects: jobs.>
+    max_age: 24h
+    max_msgs: 10000
+    storage: file
+    replicas: 1
+    discard: old
+  kv:
+    bucket: job-queue
+    response_bucket: job-responses
+    ttl: 1h
+    max_bytes: 104857600
+    storage: file
+    replicas: 1
+  dlq:
+    max_age: 168h
+    max_msgs: 1000
+    storage: file
+    replicas: 1
+  audit:
+    stream: AUDIT
+    subject: audit
+    max_age: 720h
+    max_bytes: 52428800
+    storage: file
+    replicas: 1
+  registry:
+    bucket: agent-registry
+    ttl: 30s
+    storage: file
+    replicas: 1
+  facts:
+    bucket: agent-facts
+    ttl: 5m
+    storage: file
+    replicas: 1
+  state:
+    bucket: agent-state
+    storage: file
+    replicas: 1
+  objects:
+    bucket: file-objects
+    max_bytes: 10737418240
+    storage: file
+    replicas: 1
+  file_state:
+    bucket: file-state
+    storage: file
+    replicas: 1
+
+telemetry:
+  tracing:
+    enabled: false

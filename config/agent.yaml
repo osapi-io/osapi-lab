@@ -1,0 +1,56 @@
+# One agent. `just render` writes a copy per node to .lab/config/<name>.yaml,
+# and one for remote agents (a laptop on the tailnet) to .lab/config/remote.yaml.
+#
+# osapi validates the whole file whatever the command, so an agent's config has
+# to carry controller.api.security.signing_key,
+# controller.client.security.bearer_token and controller.nats.port even though
+# the agent uses none of them.
+# These are throwaway values, never the hub's, so a VM never holds the key that
+# signs the hub's tokens.
+
+controller:
+  client:
+    security:
+      bearer_token: unused-by-the-agent
+  api:
+    security:
+      signing_key: ${LAB_AGENT_DUMMY_KEY}
+  nats:
+    port: 4222
+
+agent:
+  hostname: ${LAB_NODE}
+  labels:
+    distro: ${LAB_DISTRO}
+  nats:
+    host: ${LAB_NATS_HOST}
+    port: 4222
+    client_name: osapi-agent
+    namespace: osapi
+    auth:
+      type: user_pass
+      username: osapi
+      password: ${LAB_NATS_PASSWORD}
+  metrics:
+    enabled: false
+  privilege_escalation:
+    enabled: false
+
+# The agent binds to buckets the NATS server created; these names have no
+# default, so they are repeated from config/hub.yaml.
+nats:
+  facts:
+    bucket: agent-facts
+  state:
+    bucket: agent-state
+  objects:
+    bucket: file-objects
+  file_state:
+    bucket: file-state
+  audit:
+    stream: AUDIT
+    subject: audit
+
+telemetry:
+  tracing:
+    enabled: false

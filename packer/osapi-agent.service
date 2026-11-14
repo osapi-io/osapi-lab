@@ -1,0 +1,15 @@
+[Unit]
+Description=osapi agent
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/usr/local/bin/osapi
+ConditionPathExists=/etc/osapi/osapi.yaml
+
+[Service]
+ExecStart=/usr/local/bin/osapi -f /etc/osapi/osapi.yaml agent start
+WorkingDirectory=/var/lib/osapi
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

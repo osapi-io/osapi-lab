@@ -1,0 +1,6 @@
+#!/bin/sh
+# Prints a template with each ${NAME} replaced by the environment variable NAME.
+# Fails on a name that is not set, so a template never renders with a hole.
+#
+#   scripts/render config/agent.yaml > .lab/config/ubuntu-1.yaml
+exec perl -pe 's/\$\{(\w+)\}/exists $ENV{$1} ? $ENV{$1} : die "render: $1 is not set\n"/ge' "$1"
