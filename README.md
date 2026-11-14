@@ -22,16 +22,16 @@
 
 <p align="center">
 Ansible builds your osapi checkout. Packer puts the build into Tart images. Then
-Ansible rebuilds the fleet from these images. You do all of it from your own
+Ansible rebuilds the VMs from these images. You do all of it from your own
 machine.
 </p>
 
 ## Usage
 
 A Mac is the hub. The hub runs the NATS server and the controller of osapi. It
-also runs one Tart VM for each Linux distribution, and each VM runs an agent.
-Your machine builds osapi and controls all the other machines over SSH. The hub
-does not need a checkout of this repository.
+also runs one Tart VM for each Linux distribution. Each VM runs an agent. Your
+machine builds osapi and controls all the other machines over SSH. The hub does
+not need a checkout of this repository.
 
 ```
             Mac (hub)                        your machine
