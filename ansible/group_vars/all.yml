@@ -46,6 +46,10 @@ lab_hub_state_abs: "{{ lab_hub_state | regex_replace('^~', ansible_facts.env.HOM
 # Empty when nothing has been built here yet.
 lab_build_tag: "{{ lookup('ansible.builtin.file', lab_state ~ '/bin/TAG', errors='ignore') | default('', true) }}"
 lab_build_revision: "{{ lookup('ansible.builtin.file', lab_state ~ '/bin/REVISION', errors='ignore') | default('', true) }}"
+# Changes with any change to the source, dirty trees included. An image and a
+# VM record the fingerprint they were made from, so a run rebuilds or reclones
+# only what is out of date.
+lab_build_fingerprint: "{{ lookup('ansible.builtin.file', lab_state ~ '/bin/FINGERPRINT', errors='ignore') | default('', true) }}"
 
 # PATH for commands on the hub. A non-interactive SSH session on a Mac has no
 # Homebrew or mise on PATH. Until facts are gathered (the gathering itself runs

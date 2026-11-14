@@ -14,8 +14,6 @@
     lab_images_prune: true
 - name: VMs
   ansible.builtin.import_playbook: vms.yml
-  vars:
-    lab_vms_recreate: true
 - name: Agents
   ansible.builtin.import_playbook: agents.yml
 - name: Client

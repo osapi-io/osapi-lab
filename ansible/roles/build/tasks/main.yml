@@ -2,6 +2,10 @@
 # Compiles the osapi checkout at lab_osapi_dir, on the machine running Ansible,
 # for the hub and remote agents (darwin) and the VMs (linux). Whatever branch it
 # is on, uncommitted changes included.
+#
+# Skipped when the checkout has not changed since the last build: the commit,
+# the uncommitted diff and the untracked files are fingerprinted, and the
+# fingerprint is kept beside the binaries. -e build_force=true rebuilds anyway.
 
 - name: Resolve the checkout
   ansible.builtin.set_fact:
@@ -16,10 +20,13 @@
 
 # REVISION is for people: branch@commit, and whether the tree was dirty. TAG
 # names the images built from it: the short commit, with -dirty when the tree
-# had uncommitted changes.
-- name: Describe the build
+# had uncommitted changes. FINGERPRINT changes with any change to the source:
+# the same dirty tree gives the same one, and any edit a new one.
+- name: Describe the checkout
   ansible.builtin.shell:
+    executable: /bin/bash
     cmd: |
+      set -o pipefail
       sha="$(git rev-parse --short HEAD)"
       rev="$(git rev-parse --abbrev-ref HEAD)@$sha"
       tag="$sha"
@@ -29,15 +36,35 @@
       fi
       echo "$rev"
       echo "$tag"
+      {
+        git rev-parse HEAD
+        git diff HEAD --binary
+        git ls-files --others --exclude-standard -z | xargs -0 shasum 2>/dev/null
+      } | shasum | cut -d' ' -f1
     chdir: "{{ build_dir }}"
   register: build_rev
   changed_when: false
   check_mode: false
 
+- name: Check for the binaries
+  ansible.builtin.stat:
+    path: "{{ build_bin }}/osapi-{{ item }}-arm64"
+  loop: [darwin, linux]
+  register: build_binaries
+
+- name: Decide whether to build
+  ansible.builtin.set_fact:
+    build_needed: >-
+      {{ (build_force | default(false) | bool)
+         or (build_binaries.results | rejectattr('stat.exists') | list | length > 0)
+         or (lookup('ansible.builtin.file', build_bin ~ '/FINGERPRINT', errors='ignore') | default('', true))
+            != build_rev.stdout_lines[2] }}
+
 # osapi embeds ui/dist, so the UI is built first. fetch brings in the shared
 # react recipes, which a fresh checkout does not have. mise supplies the
 # checkout's own toolchain.
 - name: Build the UI
+  when: build_needed | bool
   ansible.builtin.shell:
     cmd: |
       mise trust -q .
@@ -50,6 +77,7 @@
 # a signed binary whose bytes change in place, and a remote agent may be running
 # the darwin one.
 - name: Compile osapi
+  when: build_needed | bool
   ansible.builtin.shell:
     cmd: |
       mise exec -- go build -o "{{ build_bin }}/osapi-{{ item }}-arm64.new" .
@@ -62,6 +90,8 @@
   loop: [darwin, linux]
   changed_when: true
 
+# Written last, so a build that fails part way leaves the old fingerprint and
+# the next run builds again.
 - name: Record what was built
   ansible.builtin.copy:
     dest: "{{ build_bin }}/{{ item.file }}"
@@ -70,6 +100,7 @@
   loop:
     - { file: REVISION, value: "{{ build_rev.stdout_lines[0] }}" }
     - { file: TAG, value: "{{ build_rev.stdout_lines[1] }}" }
+    - { file: FINGERPRINT, value: "{{ build_rev.stdout_lines[2] }}" }
   loop_control:
     label: "{{ item.file }}"
 
@@ -82,4 +113,6 @@
 
 - name: Say what was built
   ansible.builtin.debug:
-    msg: "built {{ build_rev.stdout_lines[0] }}, images tagged {{ build_rev.stdout_lines[1] }}"
+    msg: >-
+      {{ 'built' if (build_needed | bool) else 'already built' }}
+      {{ build_rev.stdout_lines[0] }}, images tagged {{ build_rev.stdout_lines[1] }}
