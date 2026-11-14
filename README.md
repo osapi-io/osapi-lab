@@ -44,8 +44,8 @@ not need a checkout of this repository.
  ubuntu-1    debian-1    fedora-1        Tart VMs, one agent each
 ```
 
-To run the lab, see [Running the lab](CONTRIBUTING.md#running-the-lab). The
-[design doc](https://github.com/osapi-io/specs/blob/main/components/osapi-lab/README.md)
+To run the lab, see [Run the lab](CONTRIBUTING.md#run-the-lab). The
+[design page](https://github.com/osapi-io/specs/blob/main/components/osapi-lab/README.md)
 tells how the lab works and why it has this design.
 
 ## Contributing
