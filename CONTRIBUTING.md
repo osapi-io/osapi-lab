@@ -62,16 +62,18 @@ machines.
 
 ### Day to day
 
-| You want to                                    | Run                       | Changes                |
-| ---------------------------------------------- | ------------------------- | ---------------------- |
-| See every VM, its image and its osapi build    | `just list`               | nothing                |
-| Read the hub's logs                            | `just logs`               | nothing                |
-| Talk to the lab                                | `osapi client agent list` | nothing                |
-| Shell into a VM                                | `just ssh ubuntu-1`       | nothing                |
-| Rebuild the fleet from your osapi changes      | `just push`               | everything; asks sudo  |
-| Copy your changes into the running VMs, faster | `just deploy`             | hub and VMs; asks sudo |
-| Bring the whole lab back in line with the repo | `just site`               | everything; asks sudo  |
-| Run this machine as an agent too               | `just agent`              | this machine           |
+| You want to                                    | Run                                | Changes                |
+| ---------------------------------------------- | ---------------------------------- | ---------------------- |
+| See every VM, its image and its osapi build    | `just list`                        | nothing                |
+| Read the hub's logs                            | `just logs`                        | nothing                |
+| Talk to the lab                                | `osapi client agent list`          | nothing                |
+| Look at the lab's NATS, as its `cli` user      | `nats stream ls`, `nats kv ls`     | nothing                |
+| Look at the NATS server itself, as `sys`       | `nats-sys server report jetstream` | nothing                |
+| Shell into a VM                                | `just ssh ubuntu-1`                | nothing                |
+| Rebuild the fleet from your osapi changes      | `just push`                        | everything; asks sudo  |
+| Copy your changes into the running VMs, faster | `just deploy`                      | hub and VMs; asks sudo |
+| Bring the whole lab back in line with the repo | `just site`                        | everything; asks sudo  |
+| Run this machine as an agent too               | `just agent`                       | this machine           |
 
 "Asks sudo" is the hub's sudo password: its firewall has to admit each new
 build. When your osapi checkout changed, `push` reclones every VM, so anything

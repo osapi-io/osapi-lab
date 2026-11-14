@@ -14,7 +14,7 @@
     path: "{{ hub_state }}/{{ item }}"
     state: directory
     mode: "0700"
-  loop: [bin, config, log]
+  loop: [bin, config, log, secrets]
 
 # copy writes a temporary file and renames it over the target, so the running
 # binary keeps its own inode; macOS kills one whose bytes change in place.
@@ -24,6 +24,31 @@
     dest: "{{ hub_state }}/bin/osapi-darwin-arm64"
     mode: "0755"
   register: hub_binary
+
+# Each process on the hub is its own user in osapi's NATS account: the server,
+# for its setup and heartbeat, and the controller.
+- name: Make the hub's NATS users
+  ansible.builtin.include_role:
+    name: secrets
+    tasks_from: user
+  vars:
+    secrets_nats_user: "{{ item }}"
+  loop: [nats, controller]
+
+- name: Copy the hub's NATS credentials
+  ansible.builtin.copy:
+    src: "{{ lab_nats_creds_dir }}/{{ item }}.creds"
+    dest: "{{ hub_state }}/secrets/{{ item }}.creds"
+    mode: "0600"
+  loop: [nats, controller]
+  register: hub_creds
+
+- name: Copy the NATS resolver config
+  ansible.builtin.copy:
+    src: "{{ lab_nats_resolver }}"
+    dest: "{{ hub_state }}/config/resolver.conf"
+    mode: "0600"
+  register: hub_resolver
 
 - name: Render the hub's config
   ansible.builtin.template:
@@ -41,6 +66,8 @@
     firewall_app: "{{ hub_state }}/bin/osapi-darwin-arm64"
   tags: [firewall]
 
+# NATS first: osapi's server creates its streams and buckets as it starts, and
+# the controller needs them.
 - name: Run NATS and the controller under launchd
   ansible.builtin.include_role:
     name: launchd
@@ -49,7 +76,9 @@
     launchd_program_arguments: "{{ [hub_state ~ '/bin/osapi-darwin-arm64', '-f', hub_state ~ '/config/hub.yaml'] + item.command }}"
     launchd_working_directory: "{{ hub_state }}"
     launchd_log: "{{ hub_state }}/log/{{ item.name }}.log"
-    launchd_restart: "{{ hub_binary is changed or hub_config is changed or (hub_restart | default(false) | bool) }}"
+    launchd_restart: >-
+      {{ hub_binary is changed or hub_config is changed or hub_creds is changed
+         or hub_resolver is changed or (hub_restart | default(false) | bool) }}
   loop:
     - { name: nats, command: [nats, server, start] }
     - { name: controller, command: [controller, start] }

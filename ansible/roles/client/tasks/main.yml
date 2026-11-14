@@ -11,6 +11,51 @@
     dest: "{{ lab_state }}/config/client.yaml"
     mode: "0600"
 
+# The nats CLI in this directory, through .envrc: its own user in osapi's
+# account, and the hub's address, so `nats kv ls` or `nats stream ls` shows the
+# lab's NATS as osapi sees it.
+- name: Make the nats CLI's NATS user
+  ansible.builtin.include_role:
+    name: secrets
+    tasks_from: user
+  vars:
+    secrets_nats_user: cli
+
+# The system account's user, which nsc made with the operator. Server-wide
+# commands, such as `nats server report jetstream`, need it; `nats-sys` uses it,
+# and plain `nats` keeps to the cli user.
+- name: Copy the system account's credentials
+  ansible.builtin.copy:
+    src: "{{ lab_nsc_dir }}/keys/creds/lab/SYS/sys.creds"
+    dest: "{{ lab_nats_creds_dir }}/sys.creds"
+    mode: "0600"
+
+# .envrc puts .lab/bin on PATH, so `nats-sys server list` works in this
+# directory like any command.
+- name: Write nats-sys, the nats CLI as the system account
+  ansible.builtin.copy:
+    dest: "{{ lab_state }}/bin/nats-sys"
+    content: |
+      #!/bin/sh
+      # The nats CLI as NATS's system account, for server-wide commands.
+      NATS_CREDS="{{ lab_nats_creds_dir }}/sys.creds" exec nats "$@"
+    mode: "0755"
+
+- name: Write the nats CLI's environment
+  ansible.builtin.copy:
+    dest: "{{ lab_state }}/config/nats.env"
+    content: |
+      NATS_URL=nats://{{ lab_hub_addr }}:{{ lab_nats_port }}
+      NATS_CREDS={{ lab_nats_creds_dir }}/cli.creds
+    mode: "0600"
+
+- name: Make the remote agent's NATS user
+  ansible.builtin.include_role:
+    name: secrets
+    tasks_from: user
+  vars:
+    secrets_nats_user: agent-remote
+
 # A remote agent uses its own hostname and dials the hub's tailnet address.
 - name: Render the remote agent config
   ansible.builtin.template:
@@ -21,6 +66,7 @@
     agent_node: ""
     agent_distro: "{{ client_distro }}"
     agent_nats_host: "{{ lab_hub_addr }}"
+    agent_creds_file: "{{ lab_nats_creds_dir }}/agent-remote.creds"
 
 # `ssh -F .lab/ssh/config <vm>` reaches a VM through the hub; scp and rsync
 # take the same file. Written only when this run found the VMs.

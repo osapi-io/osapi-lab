@@ -29,10 +29,21 @@ lab_api_port: 8080
 # Ansible. The secrets role creates them; nothing else writes them. Lookups are
 # lazy, so these resolve only where a template or task uses them.
 lab_secrets_dir: "{{ lab_state }}/secrets"
-lab_nats_password: "{{ lookup('ansible.builtin.file', lab_secrets_dir ~ '/nats_password') }}"
 lab_signing_key: "{{ lookup('ansible.builtin.file', lab_secrets_dir ~ '/signing_key') }}"
 lab_token: "{{ lookup('ansible.builtin.file', lab_secrets_dir ~ '/token') }}"
 lab_agent_dummy_key: "{{ lookup('ansible.builtin.file', lab_secrets_dir ~ '/agent_dummy_key') }}"
+
+# NATS runs in operator (decentralized JWT) mode, as a NATS someone already runs
+# would. nsc keeps the operator, its accounts and their keys here, and each NATS
+# user's credentials file, one per osapi process, goes in lab_nats_creds_dir.
+lab_nsc_dir: "{{ lab_secrets_dir }}/nsc"
+lab_nats_creds_dir: "{{ lab_secrets_dir }}/nats"
+lab_nsc_env:
+  NSC_HOME: "{{ lab_nsc_dir }}/home"
+  NKEYS_PATH: "{{ lab_nsc_dir }}/keys"
+# The account osapi's users belong to, and its JWT once nsc has made it.
+lab_nats_account: osapi
+lab_nats_resolver: "{{ lab_secrets_dir }}/resolver.conf"
 
 # The hub, as the plays that run elsewhere refer to it.
 lab_hub: "{{ groups['hub'][0] }}"
