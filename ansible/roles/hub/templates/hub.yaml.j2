@@ -10,8 +10,11 @@ controller:
       bearer_token: {{ lab_token }}
   ui:
     enabled: true
+    # Where a person opens each part; health shows it beside the bind address.
+    url: {{ lab_controller_url }}
   api:
     port: 8080
+    url: {{ lab_controller_url }}
     job_timeout: 30s
     security:
       signing_key: {{ lab_signing_key }}
@@ -49,6 +52,7 @@ nats:
     # without a user JWT that osapi's account signed.
     host: 0.0.0.0
     port: {{ lab_nats_port }}
+    url: {{ lab_nats_url }}
     store_dir: {{ hub_state }}/jetstream
     namespace: osapi
     auth:
@@ -117,3 +121,5 @@ telemetry:
     enabled: true
     exporter: otlp
     otlp_endpoint: 127.0.0.1:{{ lab_tracing_otlp_port }}
+    # The Jaeger UI, which osapi links to and does not run.
+    url: {{ lab_tracing_view_url }}

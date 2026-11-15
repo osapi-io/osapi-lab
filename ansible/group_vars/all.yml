@@ -55,6 +55,15 @@ lab_tracing_archive_sha256: 856f82c353833d85d144e2bb59ecf1156bb431d62748d62e5936
 lab_tracing_otlp_port: 4317
 lab_tracing_ui_port: 16686
 
+# Where a person opens the controller, the trace UI and NATS, as health shows
+# them beside each bind address. They default to the hub's address on this
+# machine (lab_hub_addr, from the inventory); set any of them in the inventory
+# to show a different location. The metrics servers answer the hub only, so
+# they get none.
+lab_controller_url: http://{{ lab_hub_addr }}:8080/
+lab_tracing_view_url: http://{{ lab_hub_addr }}:{{ lab_tracing_ui_port }}/
+lab_nats_url: nats://{{ lab_hub_addr }}:{{ lab_nats_port }}
+
 # The hub, as the plays that run elsewhere refer to it.
 lab_hub: "{{ groups['hub'][0] }}"
 
