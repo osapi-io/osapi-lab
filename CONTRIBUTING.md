@@ -169,6 +169,20 @@ changes nothing. In the pull request, tell what you ran.
 Do not commit a file under `.lab/` or `ansible/inventory.yml`. They hold secrets
 and machine names. Git ignores them.
 
+### Documentation
+
+[mdformat] formats the markdown files, through `uvx`. CI makes sure that the
+format is correct.
+
+```bash
+just md-fmt-check   # Check formatting
+just md-fmt         # Auto-fix formatting
+```
+
+Write each page in Simplified Technical English, as
+[the osapi-io constitution](https://github.com/osapi-io/specs/blob/main/CONSTITUTION.md)
+requires.
+
 ## Before you commit
 
 Run `just ready` before you commit. It formats the markdown, the justfiles, the
@@ -178,10 +192,6 @@ roles and playbooks, and the Packer templates. Then run `just test`:
 just ready
 just test
 ```
-
-Write each page in Simplified Technical English, as
-[the osapi-io constitution](https://github.com/osapi-io/specs/blob/main/CONSTITUTION.md)
-requires.
 
 ## Branches
 
