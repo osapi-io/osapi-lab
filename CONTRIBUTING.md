@@ -35,8 +35,8 @@ mise install
   format of the templates.
 - **[nsc].** The NATS of the lab runs in operator (JWT) mode. `nsc` makes its
   operator, its accounts and its users.
-- **[nats CLI].** It examines the NATS of the lab. `.envrc` points it at the
-  hub.
+- **[nats CLI].** It examines the NATS of the lab. `.envrc` gives it the address
+  of the NATS of the lab, and its credentials.
 
 mise does not supply [direnv]. Install it yourself. direnv loads `.envrc`. Then,
 in this directory, `osapi` and `nats` send their requests to the lab.
@@ -168,6 +168,20 @@ changes nothing. In the pull request, tell what you ran.
 
 Do not commit a file under `.lab/` or `ansible/inventory.yml`. They hold secrets
 and machine names. Git ignores them.
+
+### Documentation
+
+[mdformat] formats the markdown files, through `uvx`. CI makes sure that the
+format is correct.
+
+```bash
+just md-fmt-check   # Check formatting
+just md-fmt         # Auto-fix formatting
+```
+
+Write each page in Simplified Technical English, as
+[the osapi-io constitution](https://github.com/osapi-io/specs/blob/main/CONSTITUTION.md)
+requires.
 
 ## Before you commit
 
