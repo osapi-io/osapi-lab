@@ -76,13 +76,20 @@
     mode: "0644"
   register: hub_jaeger_archive
 
+# BSD tar on macOS extracts one member; ansible's unarchive needs GNU tar for
+# include.
 - name: Unpack the trace collector
-  ansible.builtin.unarchive:
-    src: "{{ hub_state }}/bin/jaeger-{{ lab_tracing_version }}.tar.gz"
-    dest: "{{ hub_state }}/bin"
-    remote_src: true
-    include: ["jaeger-{{ lab_tracing_version }}-darwin-arm64/jaeger"]
-    extra_opts: [--strip-components=1]
+  ansible.builtin.command:
+    argv:
+      - tar
+      - -xzf
+      - "{{ hub_state }}/bin/jaeger-{{ lab_tracing_version }}.tar.gz"
+      - -C
+      - "{{ hub_state }}/bin"
+      - --strip-components
+      - "1"
+      - "jaeger-{{ lab_tracing_version }}-darwin-arm64/jaeger"
+  args:
     creates: "{{ hub_state }}/bin/jaeger"
   register: hub_jaeger_binary
 
