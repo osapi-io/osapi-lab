@@ -179,6 +179,10 @@ just ready
 just test
 ```
 
+Write each page in Simplified Technical English, as
+[the osapi-io constitution](https://github.com/osapi-io/specs/blob/main/CONSTITUTION.md)
+requires.
+
 ## Branches
 
 Make all changes on a branch. Make the branch from `main`. Give it the name
