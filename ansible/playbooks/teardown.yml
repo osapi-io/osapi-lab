@@ -17,7 +17,9 @@
     teardown_labels: >-
       {{ (lab_vms | map(attribute='name') | map('regex_replace', '^', 'io.osapi.lab.vm.') | list)
          + ['io.osapi.lab.controller', 'io.osapi.lab.nats'] }}
-    teardown_binary: "{{ lab_hub_state_abs }}/bin/osapi-darwin-arm64"
+    teardown_firewall_apps:
+      - "{{ lab_hub_state_abs }}/bin/osapi-darwin-arm64"
+      - "{{ lab_hub_state_abs }}/bin/jaeger"
   tasks:
     # bootout first, so launchd does not start a VM or a process again while it
     # is being removed. The VMs go before NATS, so their agents stop first.
@@ -56,28 +58,24 @@
       when: lab_teardown_images | default(false) | bool
       loop: "{{ teardown_tart.stdout_lines | select('match', '^img-') | list }}"
 
-    - name: Remove the trace collector
-      ansible.builtin.shell: |
-        docker inspect {{ lab_tracing_container }} >/dev/null 2>&1 || exit 0
-        docker rm -f {{ lab_tracing_container }}
-        echo removed
-      register: teardown_tracing
-      changed_when: "'removed' in teardown_tracing.stdout"
-
-    - name: Check the firewall entry for the osapi build
-      ansible.builtin.command: /usr/libexec/ApplicationFirewall/socketfilterfw --getappblocked {{ teardown_binary }}
+    - name: Check the firewall entries for the osapi build and the trace collector
+      ansible.builtin.command: /usr/libexec/ApplicationFirewall/socketfilterfw --getappblocked {{ item }}
       register: teardown_firewall
       changed_when: false
       check_mode: false
       failed_when: false
+      loop: "{{ teardown_firewall_apps }}"
 
-    - name: Remove the firewall entry for the osapi build
+    - name: Remove the firewall entries for the osapi build and the trace collector
       when:
-        - teardown_firewall.rc == 0
-        - "'not part of' not in teardown_firewall.stdout"
+        - item.rc == 0
+        - "'not part of' not in item.stdout"
       become: true
-      ansible.builtin.command: /usr/libexec/ApplicationFirewall/socketfilterfw --remove {{ teardown_binary }}
+      ansible.builtin.command: /usr/libexec/ApplicationFirewall/socketfilterfw --remove {{ item.item }}
       changed_when: true
+      loop: "{{ teardown_firewall.results }}"
+      loop_control:
+        label: "{{ item.item }}"
 
     - name: Remove the hub's state directory
       ansible.builtin.file:

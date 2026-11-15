@@ -1,0 +1,37 @@
+# Jaeger for the lab, in memory. OTLP gRPC on every interface, so that the VMs
+# and remote agents can send traces. The UI on loopback only.
+service:
+  extensions: [jaeger_storage, jaeger_query]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [jaeger_storage_exporter]
+
+extensions:
+  jaeger_query:
+    storage:
+      traces: memstore
+    http:
+      endpoint: 127.0.0.1:{{ lab_tracing_ui_port }}
+    grpc:
+      endpoint: 127.0.0.1:16685
+
+  jaeger_storage:
+    backends:
+      memstore:
+        memory:
+          max_traces: 100000
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:{{ lab_tracing_otlp_port }}
+
+processors:
+  batch:
+
+exporters:
+  jaeger_storage_exporter:
+    trace_storage: memstore
