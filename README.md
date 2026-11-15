@@ -26,7 +26,7 @@ Ansible rebuilds the VMs from these images. You do all of it from your own
 machine.
 </p>
 
-## Usage
+## 🚀 Usage
 
 A Mac is the hub. The hub runs the NATS server and the controller of osapi. It
 also runs one Tart VM for each Linux distribution. Each VM runs an agent. Your
@@ -48,12 +48,12 @@ To run the lab, see [Run the lab](CONTRIBUTING.md#run-the-lab). The
 [design page](https://github.com/osapi-io/specs/blob/main/components/osapi-lab/README.md)
 tells how the lab works and why it has this design.
 
-## Contributing
+## 🤝 Contributing
 
 The [Contributing](CONTRIBUTING.md) guide tells how to run the lab, and how to
 make and check a change to it.
 
-## License
+## 📄 License
 
 The [MIT] License.
 
