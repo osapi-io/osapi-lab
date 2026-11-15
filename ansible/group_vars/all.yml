@@ -49,8 +49,9 @@ lab_nats_resolver: "{{ lab_secrets_dir }}/resolver.conf"
 # each agent send OTLP over gRPC to the OTLP port, and the UI is on the UI port.
 # One collector, because one trace runs from the controller through NATS to an
 # agent.
-lab_tracing_image: jaegertracing/jaeger:2.22.0
-lab_tracing_container: osapi-lab-jaeger
+lab_tracing_version: 2.22.0
+lab_tracing_url: https://github.com/jaegertracing/jaeger/releases/download/v{{ lab_tracing_version }}/jaeger-{{ lab_tracing_version }}-darwin-arm64.tar.gz
+lab_tracing_archive_sha256: 856f82c353833d85d144e2bb59ecf1156bb431d62748d62e59360b5bdc00fc63
 lab_tracing_otlp_port: 4317
 lab_tracing_ui_port: 16686
 

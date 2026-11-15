@@ -66,37 +66,54 @@
     firewall_app: "{{ hub_state }}/bin/osapi-darwin-arm64"
   tags: [firewall]
 
-# Jaeger before the processes that send to it. docker run publishes OTLP on every
-# interface, for the VMs, and the UI on loopback only.
-- name: Check for the trace collector
-  ansible.builtin.command: docker inspect --format {% raw %}'{{ .Config.Image }} {{ .State.Running }}'{% endraw %} {{ lab_tracing_container }}
-  register: hub_tracing
-  changed_when: false
-  failed_when: false
-  check_mode: false
+# Jaeger before the processes that send to it. It runs as a native binary
+# under launchd, like NATS and the controller, so the hub needs no Docker.
+- name: Download the trace collector
+  ansible.builtin.get_url:
+    url: "{{ lab_tracing_url }}"
+    dest: "{{ hub_state }}/bin/jaeger-{{ lab_tracing_version }}.tar.gz"
+    checksum: "sha256:{{ lab_tracing_archive_sha256 }}"
+    mode: "0644"
+  register: hub_jaeger_archive
 
-- name: Remove a trace collector on another image
-  when:
-    - hub_tracing.rc == 0
-    - not hub_tracing.stdout.startswith(lab_tracing_image ~ ' ')
-  ansible.builtin.command: docker rm -f {{ lab_tracing_container }}
-  changed_when: true
+- name: Unpack the trace collector
+  ansible.builtin.unarchive:
+    src: "{{ hub_state }}/bin/jaeger-{{ lab_tracing_version }}.tar.gz"
+    dest: "{{ hub_state }}/bin"
+    remote_src: true
+    include: ["jaeger-{{ lab_tracing_version }}-darwin-arm64/jaeger"]
+    extra_opts: [--strip-components=1]
+    creates: "{{ hub_state }}/bin/jaeger"
+  register: hub_jaeger_binary
 
-- name: Run the trace collector
-  when: hub_tracing.rc != 0 or not hub_tracing.stdout.startswith(lab_tracing_image ~ ' ')
-  ansible.builtin.command: >-
-    docker run -d --name {{ lab_tracing_container }} --restart unless-stopped
-    -p {{ lab_tracing_otlp_port }}:4317
-    -p 127.0.0.1:{{ lab_tracing_ui_port }}:16686
-    {{ lab_tracing_image }}
-  changed_when: true
+- name: Write the trace collector config
+  ansible.builtin.template:
+    src: jaeger.yaml.j2
+    dest: "{{ hub_state }}/config/jaeger.yaml"
+    mode: "0600"
+  register: hub_jaeger_config
 
-- name: Start the trace collector
-  when:
-    - hub_tracing.rc == 0
-    - hub_tracing.stdout == lab_tracing_image ~ ' false'
-  ansible.builtin.command: docker start {{ lab_tracing_container }}
-  changed_when: true
+- name: Let the VMs reach the trace collector through the firewall
+  ansible.builtin.include_role:
+    name: firewall
+    apply:
+      tags: [firewall]
+  vars:
+    firewall_app: "{{ hub_state }}/bin/jaeger"
+  tags: [firewall]
+
+- name: Run the trace collector under launchd
+  ansible.builtin.include_role:
+    name: launchd
+  vars:
+    launchd_label: "{{ hub_label_prefix }}.jaeger"
+    launchd_program_arguments:
+      - "{{ hub_state }}/bin/jaeger"
+      - --config
+      - "{{ hub_state }}/config/jaeger.yaml"
+    launchd_working_directory: "{{ hub_state }}"
+    launchd_log: "{{ hub_state }}/log/jaeger.log"
+    launchd_restart: "{{ hub_jaeger_binary is changed or hub_jaeger_config is changed }}"
 
 # NATS first: osapi's server creates its streams and buckets as it starts, and
 # the controller needs them.
