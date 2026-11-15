@@ -35,8 +35,8 @@ mise install
   format of the templates.
 - **[nsc].** The NATS of the lab runs in operator (JWT) mode. `nsc` makes its
   operator, its accounts and its users.
-- **[nats CLI].** It examines the NATS of the lab. `.envrc` points it at the
-  hub.
+- **[nats CLI].** It examines the NATS of the lab. `.envrc` gives it the address
+  of the NATS of the lab, and its credentials.
 
 mise does not supply [direnv]. Install it yourself. direnv loads `.envrc`. Then,
 in this directory, `osapi` and `nats` send their requests to the lab.
