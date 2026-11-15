@@ -1,7 +1,10 @@
 # {{ ansible_managed }}
 # `osapi client ...` on this machine, against the hub's API. Client commands
-# call the controller over HTTP and never touch NATS. The signing key and NATS
-# port are throwaway values osapi's validation requires in every file.
+# call the controller over HTTP and never touch NATS. The NATS port is a value
+# osapi's validation requires in every file. The signing key is the hub's own,
+# so that `osapi token generate` and `osapi token validate` here make and check
+# tokens the controller accepts. Ansible made the key on this machine; the VMs'
+# agents get a dummy one, so a VM cannot sign a token.
 
 controller:
   client:
@@ -10,6 +13,6 @@ controller:
       bearer_token: {{ lab_token }}
   api:
     security:
-      signing_key: {{ lab_agent_dummy_key }}
+      signing_key: {{ lab_signing_key }}
   nats:
     port: 4222
