@@ -86,7 +86,7 @@ it.
 | Examine the NATS of the lab, as its `cli` user  | `nats stream ls`, `nats kv ls`     | nothing                    |
 | Examine the NATS server, as `sys`               | `nats-sys server report jetstream` | nothing                    |
 | Open a shell on a VM                            | `just ssh ubuntu-1`                | nothing                    |
-| See the trace of a request, controller to agent | http://127.0.0.1:16686 on the hub  | nothing                    |
+| See the trace of a request, controller to agent | `http://<lab_hub_addr>:16686`      | nothing                    |
 | Rebuild the VMs from your osapi changes         | `just push`                        | everything; asks for sudo  |
 | Copy your build into the VMs, without a rebuild | `just deploy`                      | hub and VMs; asks for sudo |
 | Make the whole lab agree with this repository   | `just site`                        | everything; asks for sudo  |

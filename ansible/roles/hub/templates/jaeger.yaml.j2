@@ -1,5 +1,6 @@
 # Jaeger for the lab, in memory. OTLP gRPC on every interface, so that the VMs
-# and remote agents can send traces. The UI on loopback only.
+# and remote agents can send traces. The UI on every interface too, so that a
+# machine on the tailnet can open it; it has no authentication.
 service:
   extensions: [jaeger_storage, jaeger_query]
   pipelines:
@@ -13,7 +14,7 @@ extensions:
     storage:
       traces: memstore
     http:
-      endpoint: 127.0.0.1:{{ lab_tracing_ui_port }}
+      endpoint: 0.0.0.0:{{ lab_tracing_ui_port }}
     grpc:
       endpoint: 127.0.0.1:16685
 
