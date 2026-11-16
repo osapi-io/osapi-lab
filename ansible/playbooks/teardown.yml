@@ -23,7 +23,7 @@
   tasks:
     # bootout first, so launchd does not start a VM or a process again while it
     # is being removed. The VMs go before NATS, so their agents stop first.
-    - name: Stop {{ item }}
+    - name: Stop each VM
       ansible.builtin.shell: |
         launchctl print "gui/$(id -u)/{{ item }}" >/dev/null 2>&1 || exit 0
         launchctl bootout "gui/$(id -u)/{{ item }}"
@@ -32,7 +32,7 @@
       changed_when: "'stopped' in teardown_stopped.stdout"
       loop: "{{ teardown_labels }}"
 
-    - name: Remove the plist for {{ item }}
+    - name: Remove the plist of each VM
       ansible.builtin.file:
         path: "{{ ansible_facts.env.HOME }}/Library/LaunchAgents/{{ item }}.plist"
         state: absent
@@ -44,7 +44,7 @@
       changed_when: false
       check_mode: false
 
-    - name: Delete the VM {{ item }}
+    - name: Delete each VM
       ansible.builtin.shell: |
         tart stop {{ item }} 2>/dev/null || true
         tart delete {{ item }}
@@ -52,7 +52,7 @@
       when: item in teardown_tart.stdout_lines
       loop: "{{ lab_vms | map(attribute='name') | map('regex_replace', '^', 'lab-') | list }}"
 
-    - name: Delete the image {{ item }}
+    - name: Delete each image
       ansible.builtin.command: tart delete {{ item }}
       changed_when: true
       when: lab_teardown_images | default(false) | bool
