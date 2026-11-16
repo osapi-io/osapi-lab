@@ -9,7 +9,7 @@
   environment:
     PATH: "{{ lab_hub_path }}"
   tasks:
-    - name: Run {{ item.name }}
+    - name: Run each VM
       ansible.builtin.include_role:
         name: lab_vm
       vars:
