@@ -40,6 +40,10 @@ controller:
     enabled: true
     key_dir: {{ hub_state }}/pki
     auto_admit: true
+    # A VM that is cloned again is deleted from admission first (lab_vm). This
+    # deletes one that went away some other way, such as by hand, when it has
+    # not reported for a day.
+    delete_after: 24h
   notifications:
     enabled: true
     notifier: log

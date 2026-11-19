@@ -28,6 +28,54 @@
     state: directory
     mode: "0700"
 
+- name: Decide whether to clone again {{ lab_vm_entry.name }}
+  ansible.builtin.set_fact:
+    lab_vm_reclone: >-
+      {{ (lab_vm_recreate | bool)
+         or (lab_vm_tasks == 'main' and (lab_vm_source.stdout | default('')) != lab_vm_wanted) }}
+
+# A VM that is cloned again has a new machine ID, and asks to join as a new
+# machine. The old machine stays admitted, with its key, unless it is deleted
+# first: admission delete removes the key and each record, and keeps none,
+# so nothing marks the rebuild as a revocation. The hub may not run yet, on the
+# first deploy; then there is nothing to delete, and the list fails quietly.
+- name: Delete the admission of the VM before it is cloned again
+  when: lab_vm_reclone | bool
+  block:
+    - name: List the admission records of {{ lab_vm_entry.name }}
+      ansible.builtin.command:
+        argv:
+          - "{{ lab_hub_state_abs }}/bin/osapi-darwin-arm64"
+          - -f
+          - "{{ lab_hub_state_abs }}/config/hub.yaml"
+          - client
+          - admission
+          - list
+          - --json
+      register: lab_vm_admission
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Delete each machine of {{ lab_vm_entry.name }}
+      when: lab_vm_admission.rc == 0
+      ansible.builtin.command:
+        argv:
+          - "{{ lab_hub_state_abs }}/bin/osapi-darwin-arm64"
+          - -f
+          - "{{ lab_hub_state_abs }}/config/hub.yaml"
+          - client
+          - admission
+          - delete
+          - --machine-id
+          - "{{ item.machine_id }}"
+      loop: >-
+        {{ ((lab_vm_admission.stdout | from_json).items | default([]))
+           | selectattr('hostname', 'equalto', lab_vm_entry.name) | list }}
+      loop_control:
+        label: "{{ item.machine_id }}"
+      changed_when: true
+
 - name: Run tart_vm for {{ lab_vm_entry.name }}
   ansible.builtin.include_role:
     name: tart_vm
@@ -35,9 +83,7 @@
   vars:
     tart_vm_name: "lab-{{ lab_vm_entry.name }}"
     tart_vm_source: "img-{{ lab_vm_entry.image }}-{{ lab_build_tag }}"
-    tart_vm_recreate: >-
-      {{ (lab_vm_recreate | bool)
-         or (lab_vm_tasks == 'main' and (lab_vm_source.stdout | default('')) != lab_vm_wanted) }}
+    tart_vm_recreate: "{{ lab_vm_reclone }}"
     tart_vm_launchd_label: "io.osapi.lab.vm.{{ lab_vm_entry.name }}"
     tart_vm_log: "{{ lab_hub_state_abs }}/log/vm-{{ lab_vm_entry.name }}.log"
     tart_vm_inventory_name: "{{ lab_vm_entry.name }}"
