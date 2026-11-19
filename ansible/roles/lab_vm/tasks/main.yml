@@ -70,7 +70,7 @@
           - --machine-id
           - "{{ item.machine_id }}"
       loop: >-
-        {{ ((lab_vm_admission.stdout | from_json).items | default([]))
+        {{ ((lab_vm_admission.stdout | from_json)['items'] | default([]))
            | selectattr('hostname', 'equalto', lab_vm_entry.name) | list }}
       loop_control:
         label: "{{ item.machine_id }}"
