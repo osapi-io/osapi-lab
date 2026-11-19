@@ -35,11 +35,11 @@ controller:
     host: 127.0.0.1
     port: 9090
   # Agents enroll with a key and every job response is verified against it.
-  # auto_accept, because each push reclones the VMs and they enroll afresh.
+  # auto_admit, because each push reclones the VMs and they ask to join afresh.
   pki:
     enabled: true
     key_dir: {{ hub_state }}/pki
-    auto_accept: true
+    auto_admit: true
   notifications:
     enabled: true
     notifier: log
