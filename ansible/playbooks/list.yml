@@ -60,7 +60,7 @@
         cmd: |
           set -o pipefail
           cat /etc/osapi-lab/image 2>/dev/null || true
-          echo "osapi=$(/usr/local/bin/osapi version --json 2>/dev/null | grep -o '"gitVersion": *"[^"]*"' | cut -d'"' -f4)"
+          echo "osapi=$(/usr/local/bin/osapi version --json 2>/dev/null | grep -o '"version": *"[^"]*"' | cut -d'"' -f4)"
           echo "agent=$(systemctl is-active osapi-agent 2>/dev/null)"
       register: list_vm
       changed_when: false
