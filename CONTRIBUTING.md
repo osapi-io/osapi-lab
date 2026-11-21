@@ -233,6 +233,10 @@ a few. Use squash and rebase to combine commits.
 - **Links to issues and pull requests.** Link to related issues and pull
   requests. Tell how your change is different from that work, or how it adds to
   it.
+- **The specs pull request.** Open the pull request in
+  [osapi-io/specs](https://github.com/osapi-io/specs) first. Then put
+  `Specs: <its URL>` on a line in the description of this pull request. The
+  `Specs Link` workflow fails a pull request that does not have this line.
 - **What you ran on a hub.** Tell which recipes you ran on a hub. If nobody ran
   a recipe, nobody checked it.
 - **Examples.** Add examples or screenshots that show the effect of your change.
