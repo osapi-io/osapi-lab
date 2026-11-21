@@ -61,25 +61,25 @@ ready:
 list:
     just ansible-run list
 
-# Rebuild the fleet from your osapi checkout (asks for the hub's sudo password)
+# Rebuild the fleet from your osapi checkout (needs passwordless sudo on the hub)
 [group('lab')]
 push:
-    just ansible-run push -K
+    just ansible-run push
 
-# Copy your osapi build into the hub and the running VMs (asks for sudo)
+# Copy your osapi build into the hub and the running VMs
 [group('lab')]
 deploy:
-    just ansible-run deploy -K
+    just ansible-run deploy
 
-# Build everything from nothing; safe to run again (asks for sudo)
+# Build everything from nothing; safe to run again
 [group('lab')]
 site:
-    just ansible-run site -K
+    just ansible-run site
 
-# Remove the lab from the hub; keeps the images and .lab (asks for sudo)
+# Remove the lab from the hub; keeps the images and .lab
 [group('lab')]
 teardown:
-    just ansible-run teardown -K
+    just ansible-run teardown
 
 # Build osapi from your checkout into .lab/bin
 [group('lab')]

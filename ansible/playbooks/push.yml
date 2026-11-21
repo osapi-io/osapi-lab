@@ -2,8 +2,8 @@
 # Build the osapi checkout and rebuild the fleet from it: the hub runs the new
 # build, the images are rebuilt with it baked in, every VM is recloned from its
 # image and given its config. Each VM is then exactly its image plus a config.
-# -K: the hub's firewall step needs sudo. For a quicker loop that copies the
-# build into the running VMs instead, use deploy.yml.
+# The hub's firewall step needs passwordless sudo. For a quicker loop that
+# copies the build into the running VMs instead, use deploy.yml.
 - name: Build
   ansible.builtin.import_playbook: build.yml
 - name: Hub
