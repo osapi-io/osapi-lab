@@ -1,6 +1,7 @@
 ---
 # The hub's NATS server and controller: config, the darwin build, launchd, and
-# the firewall. -K: admitting a new build through the firewall needs sudo.
+# the firewall. Admitting a new build through the firewall needs passwordless
+# sudo.
 - name: Hub
   hosts: hub
   gather_facts: true

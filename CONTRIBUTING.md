@@ -62,7 +62,15 @@ hub, run:
 
 ```bash
 brew install cirruslabs/cli/tart mise
+echo "$(whoami) ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/osapi-lab
+sudo chmod 0440 /etc/sudoers.d/osapi-lab
+sudo visudo -cf /etc/sudoers.d/osapi-lab               # make sure that sudoers is correct
 ```
+
+The lab must use sudo on the hub without a password, because the firewall of the
+hub must admit each new build. Ansible runs a different command through sudo
+each time. Thus a sudoers rule for one command is not sufficient. Make the rule
+for the user that `ansible_user` in your inventory names.
 
 On your machine, in this repository, run:
 
@@ -70,7 +78,7 @@ On your machine, in this repository, run:
 mise install                                           # just, uv, packer
 cp ansible/inventory.example.yml ansible/inventory.yml # your hub and osapi checkout
 direnv allow                                           # `osapi` here talks to the lab
-just fetch site                                        # everything; asks for the hub's sudo password
+just fetch site                                        # everything
 ```
 
 `ansible/inventory.yml` is the only file that names your machines. Git ignores
@@ -78,23 +86,20 @@ it.
 
 ### Day to day
 
-| You want to                                     | Run                                | Changes                    |
-| ----------------------------------------------- | ---------------------------------- | -------------------------- |
-| See every VM, its image and its osapi build     | `just list`                        | nothing                    |
-| Read the logs of the hub                        | `just logs`                        | nothing                    |
-| Send a request to the lab                       | `osapi client agent list`          | nothing                    |
-| Examine the NATS of the lab, as its `cli` user  | `nats stream ls`, `nats kv ls`     | nothing                    |
-| Examine the NATS server, as `sys`               | `nats-sys server report jetstream` | nothing                    |
-| Open a shell on a VM                            | `just ssh ubuntu-1`                | nothing                    |
-| See the trace of a request, controller to agent | `http://<lab_hub_addr>:16686`      | nothing                    |
-| Rebuild the VMs from your osapi changes         | `just push`                        | everything; asks for sudo  |
-| Copy your build into the VMs, without a rebuild | `just deploy`                      | hub and VMs; asks for sudo |
-| Make the whole lab agree with this repository   | `just site`                        | everything; asks for sudo  |
-| Run this machine as an agent too                | `just agent`                       | this machine               |
-| Remove the lab from the hub                     | `just teardown`                    | the hub; asks for sudo     |
-
-"Asks for sudo" means that the recipe asks for the sudo password of the hub. The
-recipe needs it because the firewall of the hub must admit each new build.
+| You want to                                     | Run                                | Changes      |
+| ----------------------------------------------- | ---------------------------------- | ------------ |
+| See every VM, its image and its osapi build     | `just list`                        | nothing      |
+| Read the logs of the hub                        | `just logs`                        | nothing      |
+| Send a request to the lab                       | `osapi client agent list`          | nothing      |
+| Examine the NATS of the lab, as its `cli` user  | `nats stream ls`, `nats kv ls`     | nothing      |
+| Examine the NATS server, as `sys`               | `nats-sys server report jetstream` | nothing      |
+| Open a shell on a VM                            | `just ssh ubuntu-1`                | nothing      |
+| See the trace of a request, controller to agent | `http://<lab_hub_addr>:16686`      | nothing      |
+| Rebuild the VMs from your osapi changes         | `just push`                        | everything   |
+| Copy your build into the VMs, without a rebuild | `just deploy`                      | hub and VMs  |
+| Make the whole lab agree with this repository   | `just site`                        | everything   |
+| Run this machine as an agent too                | `just agent`                       | this machine |
+| Remove the lab from the hub                     | `just teardown`                    | the hub      |
 
 Do not keep work inside a VM. If your osapi checkout changed, `push` clones each
 VM again. You then lose all changes inside the VMs.

@@ -6,7 +6,7 @@
 # Kept unless asked: the images the VMs are cloned from, which take the
 # longest to rebuild (-e lab_teardown_images=true), and this machine's .lab,
 # which holds the lab's NATS operator and keys (-e lab_teardown_local=true).
-# -K: removing the firewall entry needs sudo.
+# Removing the firewall entry needs passwordless sudo.
 - name: Teardown the hub
   hosts: hub
   gather_facts: true
