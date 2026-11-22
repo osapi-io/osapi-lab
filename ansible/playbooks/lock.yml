@@ -1,0 +1,11 @@
+---
+# Takes the lock that keeps two lab runs from changing the images and the VMs at once (osapi-io/osapi-lab#38).
+- name: Take the lab's lock
+  hosts: hub
+  gather_facts: true
+  gather_subset: [min]
+  tasks:
+    - name: Take the lock
+      ansible.builtin.include_role:
+        name: lock
+        tasks_from: acquire

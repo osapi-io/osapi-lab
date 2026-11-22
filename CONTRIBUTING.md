@@ -102,11 +102,30 @@ it.
 | Remove the lab from the hub                     | `just teardown`                    | the hub      |
 
 Do not keep work inside a VM. A VM is its image: `deploy` replaces a VM with a
-clone of its new image when your osapi checkout or `packer/` changed, and `push`
-replaces each VM. You then lose all changes inside the VMs.
+clone of its new image when your osapi checkout or `packer/` changed, and
+`rebuild` replaces each VM. You then lose all changes inside the VMs.
 
 If the checkout and `packer/` did not change, `deploy` changes nothing. `just`
 with no arguments lists all the recipes, not only these.
+
+### One run at a time
+
+Only one run can change the images and the VMs. `deploy`, `rebuild`, `site`,
+`images`, `vms` and `teardown` take a lock on the hub, `~/.osapi-lab/lock`, and
+give it back when they end. A second run stops with the name of the run that
+holds the lock: its machine, its process, its build and its start time. Two runs
+at once delete each other's images (#38).
+
+A run that stops before its end keeps the lock. The next run on the same machine
+sees that the process is gone, and breaks the lock. A lock from a run on a
+different machine stays. Make sure that no run is active, then break it:
+
+```bash
+just ansible-run deploy -e lab_lock_break=true
+```
+
+A run that deletes the images of a different build also keeps each image that a
+build recorded in the last hour.
 
 ### Read `just list`
 

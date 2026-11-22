@@ -1,6 +1,8 @@
 ---
 # Everything, from nothing: a build, the secrets, the hub, the images, the VMs
 # and their agents, and the configs on this machine. Safe to run again.
+- name: Lock
+  ansible.builtin.import_playbook: lock.yml
 - name: Build
   ansible.builtin.import_playbook: build.yml
 - name: Secrets
@@ -15,3 +17,5 @@
   ansible.builtin.import_playbook: ready.yml
 - name: Client
   ansible.builtin.import_playbook: client.yml
+- name: Unlock
+  ansible.builtin.import_playbook: unlock.yml

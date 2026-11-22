@@ -1,0 +1,17 @@
+---
+# Gives back the lock when the outermost playbook of this run ends. A
+# playbook that another one imported keeps it for the rest of the run.
+- name: Count the playbooks of this run that hold the lock
+  ansible.builtin.set_fact:
+    lock_depth: "{{ (lock_depth | default(1) | int) - 1 }}"
+
+- name: Give back the lock
+  when: lock_depth | int <= 0 and lock_holder is defined
+  ansible.builtin.shell: |
+    set -u
+    [ -f "{{ lock_dir }}/holder" ] || exit 0
+    [ "$(head -n 1 "{{ lock_dir }}/holder")" = "{{ lock_holder }}" ] || exit 0
+    rm -rf "{{ lock_dir }}"
+    echo released
+  register: lock_released
+  changed_when: "'released' in lock_released.stdout"
