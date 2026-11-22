@@ -96,7 +96,7 @@ it.
 | Open a shell on a VM                            | `just ssh ubuntu-1`                | nothing      |
 | See the trace of a request, controller to agent | `http://<lab_hub_addr>:16686`      | nothing      |
 | Bake the changed images and replace those VMs   | `just deploy`                      | hub and VMs  |
-| Bake each image again and replace each VM       | `just push`                        | everything   |
+| Bake each image again and replace each VM       | `just rebuild`                     | everything   |
 | Make the whole lab agree with this repository   | `just site`                        | everything   |
 | Run this machine as an agent too                | `just agent`                       | this machine |
 | Remove the lab from the hub                     | `just teardown`                    | the hub      |
@@ -172,7 +172,7 @@ and no VMs. Thus also run the change on a lab:
 
 | You changed        | Run                              |
 | ------------------ | -------------------------------- |
-| `packer/`          | `just push`                      |
+| `packer/`          | `just deploy`, which bakes again |
 | a role or playbook | the playbook that uses it, twice |
 
 The second run of a playbook must report `changed=0`. Then make sure that the

@@ -61,17 +61,17 @@ ready:
 list:
     just ansible-run list
 
-# Bake each image again and replace each VM, also with no change (needs passwordless sudo on the hub)
+# Bake every image again and replace every VM, also when nothing changed (needs passwordless sudo on the hub)
 [group('lab')]
-push:
-    just ansible-run push
+rebuild:
+    just ansible-run rebuild
 
 # Bake the images of what changed and replace those VMs (needs passwordless sudo on the hub)
 [group('lab')]
 deploy:
     just ansible-run deploy
 
-# Build everything from nothing; safe to run again
+# Create the whole lab: secrets, the hub, the images and the VMs; safe to run again
 [group('lab')]
 site:
     just ansible-run site
@@ -86,7 +86,7 @@ teardown:
 build:
     just ansible-run build
 
-# Bake the build into the images the VMs are cloned from
+# Bake the images of what changed, and leave the running VMs as they are
 [group('lab')]
 images:
     just ansible-run images
