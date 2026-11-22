@@ -7,7 +7,7 @@
 # An image is built again when it is missing, or when what it was baked from
 # changed: the osapi build, or the packer directory. lab_images_rebuild=true
 # builds each one again.
-- name: "Images: bake one image for each VM with Packer, the whole VM before it boots"
+- name: Images
   hosts: hub
   gather_facts: true
   gather_subset: [min]
@@ -61,13 +61,6 @@
           {{ lab_vms if (lab_images_rebuild | default(false) | bool)
              else (images_stale + images_missing) | unique | list }}
   tasks:
-    - name: Say which images are baked
-      ansible.builtin.debug:
-        msg: >-
-          {{ ('Baking ' ~ (images_wanted | map(attribute='name') | map('regex_replace', '^(.*)$', 'img-\\1-' ~ lab_build_tag) | join(', '))
-              ~ '. Everything a VM needs goes in its image; nothing configures it after it boots.')
-             if images_wanted | length > 0
-             else 'Every image is current for ' ~ lab_build_tag ~ ': nothing to bake.' }}
     - name: Create the image records directory
       ansible.builtin.file:
         path: "{{ lab_hub_state_abs }}/images"
