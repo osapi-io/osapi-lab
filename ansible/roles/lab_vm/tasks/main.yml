@@ -77,12 +77,13 @@
           - admission
           - delete
           - --machine-id
-          - "{{ item.machine_id }}"
+          - "{{ lab_vm_machine.machine_id }}"
       loop: >-
         {{ ((lab_vm_admission.stdout | from_json)['items'] | default([]))
            | selectattr('hostname', 'equalto', lab_vm_entry.name) | list }}
       loop_control:
-        label: "{{ item.machine_id }}"
+        loop_var: lab_vm_machine
+        label: "{{ lab_vm_machine.machine_id }}"
       changed_when: true
 
 - name: Run tart_vm for {{ lab_vm_entry.name }}
