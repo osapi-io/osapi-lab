@@ -80,7 +80,10 @@ nats:
   kv:
     bucket: job-queue
     response_bucket: job-responses
-    ttl: 1h
+    # How long a job stays on the Jobs page and in job get. It matches the
+    # JOBS stream's max_age. With 1h, every job older than an hour went at
+    # once each time the hub connected (osapi-io/osapi#1096).
+    ttl: 24h
     max_bytes: 104857600
     storage: file
     replicas: 1
