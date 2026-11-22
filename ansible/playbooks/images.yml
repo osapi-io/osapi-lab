@@ -7,6 +7,8 @@
 # An image is built again when it is missing, or when what it was baked from
 # changed: the osapi build, or the packer directory. lab_images_rebuild=true
 # builds each one again.
+- name: Lock
+  ansible.builtin.import_playbook: lock.yml
 - name: Images
   hosts: hub
   gather_facts: true
@@ -119,11 +121,32 @@
       loop: "{{ images_wanted }}"
       loop_control:
         label: "{{ item.name }}"
+    # An image that a build recorded in the last hour stays, also when this
+    # build does not clone it: it can be the image of a run that broke the
+    # lock, or that a VM is cloned from now (osapi-io/osapi-lab#38).
+    - name: Find the images that no VM of this build clones, and no build recorded in the last hour
+      when: lab_images_prune | default(false) | bool
+      ansible.builtin.shell: |
+        set -u
+        for image in {{ images_prunable | join(' ') }}; do
+          record="{{ lab_hub_state_abs }}/images/$image.fingerprint"
+          if [ -f "$record" ] && [ -n "$(find "$record" -mmin -60)" ]; then
+            continue
+          fi
+          echo "$image"
+        done
+      vars:
+        images_prunable: >-
+          {{ images_present.stdout_lines | select('match', '^img-')
+             | reject('in', lab_vms | map(attribute='name')
+                            | map('regex_replace', '^(.*)$', 'img-\\1-' ~ lab_build_tag) | list) | list }}
+      register: images_old
+      changed_when: false
+      check_mode: false
     - name: Delete the images that no VM of this build clones
       when: lab_images_prune | default(false) | bool
       ansible.builtin.command: tart delete {{ item }}
-      loop: >-
-        {{ images_present.stdout_lines | select('match', '^img-')
-           | reject('in', lab_vms | map(attribute='name')
-                          | map('regex_replace', '^(.*)$', 'img-\\1-' ~ lab_build_tag) | list) | list }}
+      loop: "{{ images_old.stdout_lines | default([]) }}"
       changed_when: true
+- name: Unlock
+  ansible.builtin.import_playbook: unlock.yml

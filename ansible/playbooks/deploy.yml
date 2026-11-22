@@ -3,6 +3,8 @@
 # directory changed, and replaces those VMs with clones of their new images.
 # A VM is its image: nothing is copied into a running VM. The hub's firewall
 # step needs passwordless sudo.
+- name: Lock
+  ansible.builtin.import_playbook: lock.yml
 - name: Build
   ansible.builtin.import_playbook: build.yml
 - name: Hub
@@ -17,3 +19,5 @@
   ansible.builtin.import_playbook: ready.yml
 - name: Client
   ansible.builtin.import_playbook: client.yml
+- name: Unlock
+  ansible.builtin.import_playbook: unlock.yml

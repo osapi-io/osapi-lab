@@ -1,6 +1,8 @@
 ---
 # As deploy.yml, but bakes each image again and replaces each VM, also when
 # nothing changed: a fleet with no drift from its images.
+- name: Lock
+  ansible.builtin.import_playbook: lock.yml
 - name: Build
   ansible.builtin.import_playbook: build.yml
 - name: Hub
@@ -18,3 +20,5 @@
   ansible.builtin.import_playbook: ready.yml
 - name: Client
   ansible.builtin.import_playbook: client.yml
+- name: Unlock
+  ansible.builtin.import_playbook: unlock.yml

@@ -1,0 +1,11 @@
+---
+# Gives back the lock that lock.yml took.
+- name: Give back the lab's lock
+  hosts: hub
+  gather_facts: true
+  gather_subset: [min]
+  tasks:
+    - name: Give back the lock
+      ansible.builtin.include_role:
+        name: lock
+        tasks_from: release

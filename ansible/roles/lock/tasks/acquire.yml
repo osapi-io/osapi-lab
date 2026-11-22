@@ -1,0 +1,103 @@
+---
+# Takes the lab's lock for this run, or refuses: two runs at once delete each
+# other's images (osapi-io/osapi-lab#38). A run names itself by this machine
+# and the process of its ansible-playbook, so a playbook that a run imports
+# takes the lock it already holds, and the lock of a run that died is broken.
+# -e lab_lock_break=true breaks a lock that a run on another machine left.
+- name: Name this run, for the lock
+  when: lock_holder is not defined
+  delegate_to: localhost
+  ansible.builtin.shell: |
+    set -euo pipefail
+    # The workers that run a task are forks of ansible-playbook and end with
+    # the task, so the run is the topmost ansible-playbook above this shell.
+    pid=$PPID
+    run=0
+    while [ "$pid" -gt 1 ]; do
+      case "$(ps -o command= -p "$pid")" in
+        */bin/ansible-playbook\ *) run=$pid ;;
+      esac
+      pid=$(ps -o ppid= -p "$pid" | tr -d ' ')
+    done
+    echo "$(hostname -s) $run"
+  args:
+    executable: /bin/bash
+  register: lock_self
+  changed_when: false
+  check_mode: false
+
+- name: Keep the name of this run
+  when: lock_holder is not defined
+  ansible.builtin.set_fact:
+    lock_holder: "{{ lock_self.stdout }}"
+
+- name: Read the lock
+  ansible.builtin.command: cat {{ lock_dir }}/holder
+  register: lock_current
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Name the run that holds the lock
+  ansible.builtin.set_fact:
+    lock_other: "{{ lock_current.rc == 0 and (lock_current.stdout_lines | first | default('')) != lock_holder }}"
+    lock_other_holder: "{{ lock_current.stdout_lines | first | default('') }}"
+
+- name: Check whether the run that holds the lock is still running
+  when: lock_other | bool
+  delegate_to: localhost
+  ansible.builtin.shell: |
+    set -uo pipefail
+    host=$(echo "{{ lock_other_holder }}" | cut -d' ' -f1)
+    pid=$(echo "{{ lock_other_holder }}" | cut -d' ' -f2)
+    if [ "$host" != "$(hostname -s)" ]; then echo elsewhere; exit 0; fi
+    case "$(ps -o command= -p "$pid" 2>/dev/null)" in
+      */bin/ansible-playbook\ *) echo running ;;
+      *) echo gone ;;
+    esac
+  args:
+    executable: /bin/bash
+  register: lock_other_state
+  changed_when: false
+  check_mode: false
+
+- name: Refuse while another run holds the lock
+  when:
+    - lock_other | bool
+    - lock_other_state.stdout != 'gone'
+    - not (lab_lock_break | default(false) | bool)
+  ansible.builtin.fail:
+    msg: >-
+      Another lab run holds the lock ({{ lock_current.stdout_lines | join('; ') }}).
+      Two runs at once delete each other's images. Wait for it to finish. If it
+      is gone, run again with -e lab_lock_break=true.
+
+- name: Break the lock of a run that is gone
+  when: lock_other | bool
+  ansible.builtin.file:
+    path: "{{ lock_dir }}"
+    state: absent
+
+- name: Take the lock
+  when: lock_current.rc != 0 or lock_other | bool
+  block:
+    - name: Make the hub's state directory
+      ansible.builtin.file:
+        path: "{{ lab_hub_state_abs }}"
+        state: directory
+        mode: "0700"
+    - name: Make the lock
+      ansible.builtin.command: mkdir {{ lock_dir }}
+      changed_when: true
+    - name: Say which run holds the lock
+      ansible.builtin.copy:
+        dest: "{{ lock_dir }}/holder"
+        content: |
+          {{ lock_holder }}
+          build {{ lab_build_tag | default('', true) or 'none' }}
+          since {{ now(utc=true, fmt='%Y-%m-%dT%H:%M:%SZ') }}
+        mode: "0644"
+
+- name: Count the playbooks of this run that hold the lock
+  ansible.builtin.set_fact:
+    lock_depth: "{{ (lock_depth | default(0) | int) + 1 }}"
