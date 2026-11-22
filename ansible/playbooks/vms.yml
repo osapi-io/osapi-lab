@@ -2,7 +2,7 @@
 # Clone and run every VM in group_vars/all.yml, each under its own launchd
 # agent, and add them to the inventory. A VM cloned from an older image is
 # recloned; -e lab_vms_recreate=true reclones every one.
-- name: VMs
+- name: "VMs: replace each VM with a clone of its baked image, with no login"
   hosts: hub
   gather_facts: true
   gather_subset: [min]

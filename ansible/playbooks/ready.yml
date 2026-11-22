@@ -2,7 +2,7 @@
 # Waits until the agent of each VM is Ready on the hub. A VM is its image, so
 # nothing logs in to it: the agent starts at boot with the config baked in, the
 # hub admits it, and the controller reports it.
-- name: Ready
+- name: "Ready: wait for each agent, which starts at boot from its baked config"
   hosts: hub
   gather_facts: true
   gather_subset: [min]

@@ -2,7 +2,7 @@
 # The hub's NATS server and controller: config, the darwin build, launchd, and
 # the firewall. Admitting a new build through the firewall needs passwordless
 # sudo.
-- name: Hub
+- name: "Hub: set up the Mac that runs NATS and the controller, a host and not an image"
   hosts: hub
   gather_facts: true
   gather_subset: [min]
