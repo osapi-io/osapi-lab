@@ -1,13 +1,12 @@
 ---
-# Build the images the VMs are cloned from, on the hub, with the build in
-# .lab/bin baked in. Each is named img-<image>-<tag>, the tag being the build's
-# short commit with -dirty for uncommitted changes.
+# Bakes one image for each VM of the inventory: the whole VM, with its osapi
+# build, config, NATS credential, hostname and packages. packer/lab.pkr.hcl
+# does the baking with Packer's own provisioners; this playbook makes what must
+# exist outside the image (each VM's NATS user), and runs one build per VM.
 #
-# An image is built when it is missing or was baked from a different source
-# than this build's: the hub keeps each image's build fingerprint beside it, so
-# a dirty tree is rebuilt only when it has changed since.
-#   -e lab_images_rebuild=true   rebuild every image regardless
-#   -e lab_images_prune=true     delete tagged images other than this build's
+# An image is built again when it is missing, or when what it was baked from
+# changed: the osapi build, or the packer directory. lab_images_rebuild=true
+# builds each one again.
 - name: Images
   hosts: hub
   gather_facts: true
@@ -20,87 +19,111 @@
         that: lab_build_tag | length > 0
         fail_msg: No tagged build in .lab/bin. Run playbooks/build.yml first.
         quiet: true
-
+    - name: Fingerprint the packer directory
+      delegate_to: localhost
+      ansible.builtin.shell: |
+        set -euo pipefail
+        cd "{{ lab_root }}/packer"
+        find . -type f ! -path './.packer*' | LC_ALL=C sort | xargs shasum -a 256 | shasum -a 256 | cut -c1-16
+      args:
+        executable: /bin/bash
+      register: images_packer_sum
+      changed_when: false
+      check_mode: false
+    - name: Name what each image is baked from
+      ansible.builtin.set_fact:
+        lab_image_fingerprint: "{{ lab_build_fingerprint }}-{{ images_packer_sum.stdout }}"
     - name: List the images on the hub
       ansible.builtin.command: tart list --quiet --source local
       register: images_present
       changed_when: false
       check_mode: false
-
     - name: Read the fingerprint each image was baked from
-      ansible.builtin.command: cat {{ lab_hub_state_abs }}/images/img-{{ item }}-{{ lab_build_tag }}.fingerprint
-      loop: "{{ lab_vms | map(attribute='image') | unique | list }}"
+      ansible.builtin.command: cat {{ lab_hub_state_abs }}/images/img-{{ item.name }}-{{ lab_build_tag }}.fingerprint
+      loop: "{{ lab_vms }}"
+      loop_control:
+        label: "{{ item.name }}"
       register: images_baked
       changed_when: false
       failed_when: false
       check_mode: false
-
-    # Stale: baked from another source. Missing: deleted from Tart, whatever its
-    # record says.
     - name: Choose the images to build
       vars:
-        images_all: "{{ lab_vms | map(attribute='image') | unique | list }}"
         images_stale: >-
-          {{ images_baked.results | rejectattr('stdout', 'equalto', lab_build_fingerprint)
+          {{ images_baked.results | rejectattr('stdout', 'equalto', lab_image_fingerprint)
              | map(attribute='item') | list }}
         images_missing: >-
-          {{ images_all | reject('in', images_present.stdout_lines
-                                       | map('regex_replace', '^img-', '')
-                                       | map('regex_replace', '-' ~ lab_build_tag ~ '$', '') | list) | list }}
+          {{ lab_vms | rejectattr('name', 'in', images_present.stdout_lines
+                                                | map('regex_replace', '^img-', '')
+                                                | map('regex_replace', '-' ~ lab_build_tag ~ '$', '') | list) | list }}
       ansible.builtin.set_fact:
         images_wanted: >-
-          {{ images_all if (lab_images_rebuild | default(false) | bool)
+          {{ lab_vms if (lab_images_rebuild | default(false) | bool)
              else (images_stale + images_missing) | unique | list }}
-
   tasks:
     - name: Create the image records directory
       ansible.builtin.file:
         path: "{{ lab_hub_state_abs }}/images"
         state: directory
         mode: "0700"
-
     - name: Copy the linux build to the hub
       when: images_wanted | length > 0
       ansible.builtin.copy:
         src: "{{ lab_state }}/bin/osapi-linux-arm64"
         dest: "{{ lab_hub_state_abs }}/bin/osapi-linux-arm64"
         mode: "0755"
-
-    # Packer's -force does not reach the Tart plugin, whose clone refuses to
-    # overwrite an image. A VM is a full clone, so deleting its image is safe.
-    - name: Delete the images being rebuilt
-      ansible.builtin.command: tart delete img-{{ item }}-{{ lab_build_tag }}
+    - name: Make the NATS user of each VM
+      ansible.builtin.include_role:
+        name: secrets
+        tasks_from: user
+      vars:
+        secrets_nats_user: "agent-{{ item.name }}"
       loop: "{{ images_wanted }}"
-      when: ('img-' ~ item ~ '-' ~ lab_build_tag) in images_present.stdout_lines
+      loop_control:
+        label: "{{ item.name }}"
+    - name: Delete the images being rebuilt
+      ansible.builtin.command: tart delete img-{{ item.name }}-{{ lab_build_tag }}
+      loop: "{{ images_wanted }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: ('img-' ~ item.name ~ '-' ~ lab_build_tag) in images_present.stdout_lines
       changed_when: true
-
-    - name: Build the images
-      when: images_wanted | length > 0
+    - name: Build the image of each VM
       ansible.builtin.include_role:
         name: packer
       vars:
         packer_template_dir: "{{ lab_root }}/packer"
         packer_dest: "{{ lab_hub_state_abs }}/packer"
-        packer_only: "{{ images_wanted | map('regex_replace', '^', 'tart-cli.') | list }}"
         packer_vars:
-          ssh_pubkey: "{{ lookup('ansible.builtin.file', lab_ssh_key ~ '.pub') }}"
-          osapi_binary: "{{ lab_hub_state_abs }}/bin/osapi-linux-arm64"
+          vm: "{{ item.name }}"
+          distro: "{{ item.image }}"
           image_tag: "{{ lab_build_tag }}"
           revision: "{{ lab_build_revision }}"
-
+          osapi_binary: "{{ lab_hub_state_abs }}/bin/osapi-linux-arm64"
+          ssh_pubkey: "{{ lookup('ansible.builtin.file', lab_ssh_key ~ '.pub') }}"
+          dummy_key: "{{ lab_agent_dummy_key }}"
+          nats_port: "{{ lab_nats_port }}"
+          tracing_port: "{{ lab_tracing_otlp_port }}"
+        # The credential goes in the environment, so it is in no argument
+        # list on the hub and no log of this run.
+        packer_env:
+          PKR_VAR_nats_creds: "{{ lookup('ansible.builtin.file', lab_nats_creds_dir ~ '/agent-' ~ item.name ~ '.creds') }}"
+      loop: "{{ images_wanted }}"
+      loop_control:
+        label: "{{ item.name }}"
     - name: Record the fingerprint each image was baked from
       ansible.builtin.copy:
-        dest: "{{ lab_hub_state_abs }}/images/img-{{ item }}-{{ lab_build_tag }}.fingerprint"
-        content: "{{ lab_build_fingerprint }}"
+        dest: "{{ lab_hub_state_abs }}/images/img-{{ item.name }}-{{ lab_build_tag }}.fingerprint"
+        content: "{{ lab_image_fingerprint }}"
         mode: "0644"
       loop: "{{ images_wanted }}"
-
-    # Only img- images: lab-<name> is a VM, and the untagged lab-<image> images
-    # belong to the justfile.
-    - name: Delete tagged images from other builds
+      loop_control:
+        label: "{{ item.name }}"
+    - name: Delete the images that no VM of this build clones
       when: lab_images_prune | default(false) | bool
       ansible.builtin.command: tart delete {{ item }}
       loop: >-
         {{ images_present.stdout_lines | select('match', '^img-')
-           | reject('match', '^img-.*-' ~ lab_build_tag ~ '$') | list }}
+           | reject('in', lab_vms | map(attribute='name')
+                          | map('regex_replace', '^(.*)$', 'img-\\1-' ~ lab_build_tag) | list) | list }}
       changed_when: true

@@ -61,12 +61,12 @@ ready:
 list:
     just ansible-run list
 
-# Rebuild the fleet from your osapi checkout (needs passwordless sudo on the hub)
+# Bake each image again and replace each VM, also with no change (needs passwordless sudo on the hub)
 [group('lab')]
 push:
     just ansible-run push
 
-# Copy your osapi build into the hub and the running VMs
+# Bake the images of what changed and replace those VMs (needs passwordless sudo on the hub)
 [group('lab')]
 deploy:
     just ansible-run deploy

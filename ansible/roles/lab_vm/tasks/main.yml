@@ -1,7 +1,16 @@
 ---
+# The image of a VM is the whole VM. Its record holds what it was baked from,
+# so a VM is cloned again when its image was rebuilt.
+- name: Read what the image was baked from {{ lab_vm_entry.name }}
+  ansible.builtin.command: cat {{ lab_hub_state_abs }}/images/img-{{ lab_vm_entry.name }}-{{ lab_build_tag }}.fingerprint
+  register: lab_vm_image_fingerprint
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
 - name: Name what the VM should be cloned from
   ansible.builtin.set_fact:
-    lab_vm_wanted: "img-{{ lab_vm_entry.image }}-{{ lab_build_tag }} {{ lab_build_fingerprint }}"
+    lab_vm_wanted: "img-{{ lab_vm_entry.name }}-{{ lab_build_tag }} {{ lab_vm_image_fingerprint.stdout | default('') }}"
 
 - name: Check there is a tagged image to clone
   when: lab_vm_tasks == 'main'
@@ -82,7 +91,7 @@
     tasks_from: "{{ lab_vm_tasks }}"
   vars:
     tart_vm_name: "lab-{{ lab_vm_entry.name }}"
-    tart_vm_source: "img-{{ lab_vm_entry.image }}-{{ lab_build_tag }}"
+    tart_vm_source: "img-{{ lab_vm_entry.name }}-{{ lab_build_tag }}"
     tart_vm_recreate: "{{ lab_vm_reclone }}"
     tart_vm_launchd_label: "io.osapi.lab.vm.{{ lab_vm_entry.name }}"
     tart_vm_log: "{{ lab_hub_state_abs }}/log/vm-{{ lab_vm_entry.name }}.log"

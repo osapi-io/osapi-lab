@@ -1,15 +1,7 @@
 ---
-# Copies a Packer template directory to the host and builds it there. Packer
-# comes from mise on the host, so the host needs mise and nothing else.
-
-# Directory holding the template, on the machine running Ansible. Required.
 packer_template_dir: ""
-# Where it is copied on the host. Required.
 packer_dest: ""
 packer_version: latest
-# Variables passed with -var.
 packer_vars: {}
-# Sources to build, as Packer names them (tart-cli.ubuntu). Empty builds all.
-packer_only: []
-# Replace an artifact that already exists.
+packer_env: {}
 packer_force: true

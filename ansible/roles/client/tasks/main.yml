@@ -59,7 +59,7 @@
 # A remote agent uses its own hostname and dials the hub's tailnet address.
 - name: Render the remote agent config
   ansible.builtin.template:
-    src: "{{ lab_root }}/ansible/roles/agent/templates/agent.yaml.j2"
+    src: agent.yaml.j2
     dest: "{{ lab_state }}/config/remote.yaml"
     mode: "0600"
   vars:

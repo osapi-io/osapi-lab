@@ -95,25 +95,26 @@ it.
 | Examine the NATS server, as `sys`               | `nats-sys server report jetstream` | nothing      |
 | Open a shell on a VM                            | `just ssh ubuntu-1`                | nothing      |
 | See the trace of a request, controller to agent | `http://<lab_hub_addr>:16686`      | nothing      |
-| Rebuild the VMs from your osapi changes         | `just push`                        | everything   |
-| Copy your build into the VMs, without a rebuild | `just deploy`                      | hub and VMs  |
+| Bake the changed images and replace those VMs   | `just deploy`                      | hub and VMs  |
+| Bake each image again and replace each VM       | `just push`                        | everything   |
 | Make the whole lab agree with this repository   | `just site`                        | everything   |
 | Run this machine as an agent too                | `just agent`                       | this machine |
 | Remove the lab from the hub                     | `just teardown`                    | the hub      |
 
-Do not keep work inside a VM. If your osapi checkout changed, `push` clones each
-VM again. You then lose all changes inside the VMs.
+Do not keep work inside a VM. A VM is its image: `deploy` replaces a VM with a
+clone of its new image when your osapi checkout or `packer/` changed, and `push`
+replaces each VM. You then lose all changes inside the VMs.
 
-If the checkout did not change, `push` changes nothing. `just` with no arguments
-lists all the recipes, not only these.
+If the checkout and `packer/` did not change, `deploy` changes nothing. `just`
+with no arguments lists all the recipes, not only these.
 
 ### Read `just list`
 
 ```
 VM         STATE    ADDRESS         RUN BY   AGENT   IMAGE                  OSAPI
-ubuntu-1   running  192.168.64.11   launchd  active  img-ubuntu-9f0db41f0   v0.2.1-…-9f0db41f0ab1
+ubuntu-1   running  192.168.64.11   launchd  active  img-ubuntu-1-9f0db41f0 v0.2.1-…-9f0db41f0ab1
 
-images on the hub: img-debian-9f0db41f0, img-fedora-9f0db41f0, img-ubuntu-9f0db41f0
+images on the hub: img-debian-1-9f0db41f0, img-fedora-1-9f0db41f0, img-ubuntu-1-9f0db41f0
 last build here:   feat/behavior-registration@9f0db41f0 (tag 9f0db41f0)
 ```
 
@@ -122,12 +123,11 @@ A VM in good condition has `STATE` `running`, `RUN BY` `launchd` and `AGENT`
 version contains that commit. If the values are different, find the row in this
 table:
 
-| You see                                   | It means                                       | Run         |
-| ----------------------------------------- | ---------------------------------------------- | ----------- |
-| `IMAGE` tag older than the last build     | the VMs run an earlier build                   | `just push` |
-| Same `IMAGE`, `OSAPI` from another commit | a `deploy` ran after the last push             | `just push` |
-| `RUN BY manual`, or `STATE absent`        | launchd does not run the VM, or the VM is gone | `just site` |
-| `AGENT` is not `active`                   | the agent stopped; read the logs of the hub    | `just logs` |
+| You see                               | It means                                       | Run           |
+| ------------------------------------- | ---------------------------------------------- | ------------- |
+| `IMAGE` tag older than the last build | the VMs run an earlier build                   | `just deploy` |
+| `RUN BY manual`, or `STATE absent`    | launchd does not run the VM, or the VM is gone | `just site`   |
+| `AGENT` is not `active`               | the agent stopped; read the logs of the hub    | `just logs`   |
 
 ## Make a change
 
@@ -136,12 +136,21 @@ them. The Packer templates are under `packer/`. The
 [design page](https://github.com/osapi-io/specs/blob/main/components/osapi-lab/README.md)
 tells how the parts work together. This section tells how to change them.
 
+**Configure a VM in its image, not after it boots.** `packer/lab.pkr.hcl` builds
+one image for each VM with the provisioners of Packer: `file` copies each file
+in, and `shell` runs short `inline` steps. `templatefile()` renders the config
+of the agent from `packer/agent.yaml.pkrtpl.hcl`. A difference between
+distributions is a map in `locals`, not a `case` in a script. Ansible makes only
+what must exist outside the image, the NATS user of each VM, and passes its
+credential to the build in `PKR_VAR_nats_creds`. Then it clones the VMs. Nothing
+logs in to a running VM to change it.
+
 **Put behavior in a role. A playbook only lists roles.** A role is the unit that
 you use again. The general roles are `packer`, `tart_vm`, `launchd` and
 `firewall`. They know nothing about osapi. They get their inputs as variables.
 Each role declares these variables with defaults in its `defaults/main.yml`. The
-osapi roles (`build`, `secrets`, `hub`, `lab_vm`, `agent`, `client`) use the
-general roles. Make a new role a general role, unless it must know about osapi.
+osapi roles (`build`, `secrets`, `hub`, `lab_vm`, `client`) use the general
+roles. Make a new role a general role, unless it must know about osapi.
 
 **Make each role safe to run two times.** A task reports `changed` only when it
 changed something. Thus the second run of a playbook reports `changed=0`.
