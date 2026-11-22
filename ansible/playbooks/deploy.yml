@@ -1,13 +1,19 @@
 ---
-# The quick loop: build the osapi checkout and copy it into the hub and the
-# running VMs, without touching the images. Seconds rather than minutes, but a
-# VM then runs a build its image does not hold; push.yml brings them back in
-# line. The hub's firewall step needs passwordless sudo.
+# Builds the osapi checkout, bakes an image for each VM whose build or packer
+# directory changed, and replaces those VMs with clones of their new images.
+# A VM is its image: nothing is copied into a running VM. The hub's firewall
+# step needs passwordless sudo.
 - name: Build
   ansible.builtin.import_playbook: build.yml
 - name: Hub
   ansible.builtin.import_playbook: hub.yml
-- name: Agents
-  ansible.builtin.import_playbook: agents.yml
+- name: Images
+  ansible.builtin.import_playbook: images.yml
+  vars:
+    lab_images_prune: true
+- name: VMs
+  ansible.builtin.import_playbook: vms.yml
+- name: Ready
+  ansible.builtin.import_playbook: ready.yml
 - name: Client
   ansible.builtin.import_playbook: client.yml

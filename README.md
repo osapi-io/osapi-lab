@@ -21,8 +21,9 @@
 </p>
 
 <p align="center">
-Ansible builds your osapi checkout. Packer puts the build into Tart images. Then
-Ansible rebuilds the VMs from these images. You do all of it from your own
+Ansible builds your osapi checkout. Packer bakes one Tart image for each VM: the
+build, its config and each package. Then Ansible clones the VMs from these
+images. Nothing configures a VM after it boots. You do all of it from your own
 machine.
 </p>
 

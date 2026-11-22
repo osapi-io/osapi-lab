@@ -1,5 +1,6 @@
 # {{ ansible_managed }}
-# One agent. The client role renders this too, for a remote agent.
+# A remote agent: one that runs on this machine, outside the lab VMs. Each lab
+# VM has its config baked into its image, from packer/agent.yaml.pkrtpl.hcl.
 #
 # osapi validates the whole file whatever the command, so an agent's config has
 # to carry controller.api.security.signing_key,

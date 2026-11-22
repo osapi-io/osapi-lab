@@ -1,9 +1,0 @@
----
-# One osapi agent on a Linux VM the vms play added to the inventory.
-
-agent_node: "{{ inventory_hostname }}"
-agent_distro: "{{ (lab_vms | selectattr('name', 'equalto', inventory_hostname) | first).image }}"
-# The hub is the .1 of the VM's vmnet subnet.
-agent_nats_host: "{{ ansible_host | regex_replace('\\.\\d+$', '.1') }}"
-# Restart the agent even when nothing it runs changed.
-agent_restart: false
