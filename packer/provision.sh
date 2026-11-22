@@ -31,6 +31,27 @@ install -m 0644 /tmp/osapi-agent.service /etc/systemd/system/osapi-agent.service
 systemctl daemon-reload
 systemctl enable osapi-agent.service
 
+# Docker, so the lab can test osapi's container operations. Each distribution
+# installs its own package: docker.io on Ubuntu and Debian, moby-engine on
+# Fedora. Both have the daemon and the CLI. The agent runs as root, so it
+# reaches the socket without a docker group.
+. /etc/os-release
+case "$ID" in
+ubuntu | debian)
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -q
+  apt-get install -y -q docker.io
+  ;;
+fedora)
+  dnf install -y -q moby-engine
+  ;;
+*)
+  echo "provision: no Docker package for $ID" >&2
+  exit 1
+  ;;
+esac
+systemctl enable docker.service
+
 # osapi's ping provider uses unprivileged ICMP sockets.
 echo 'net.ipv4.ping_group_range = 0 2147483647' > /etc/sysctl.d/90-osapi-ping.conf
 
