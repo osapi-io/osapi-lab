@@ -19,5 +19,7 @@
   ansible.builtin.import_playbook: ready.yml
 - name: Client
   ansible.builtin.import_playbook: client.yml
+- name: Consumers
+  ansible.builtin.import_playbook: consumers.yml
 - name: Unlock
   ansible.builtin.import_playbook: unlock.yml
