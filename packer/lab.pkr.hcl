@@ -20,11 +20,17 @@ variable "vm" {
 
 variable "distro" {
   type        = string
-  description = "The distribution of the VM: ubuntu, debian or fedora."
+  description = "The distribution of the VM: ubuntu, debian, fedora or opensuse."
   validation {
-    condition     = contains(["ubuntu", "debian", "fedora"], var.distro)
-    error_message = "The distro must be ubuntu, debian or fedora."
+    condition     = contains(["ubuntu", "debian", "fedora", "opensuse"], var.distro)
+    error_message = "The distro must be ubuntu, debian, fedora or opensuse."
   }
+}
+
+variable "base_image" {
+  type        = string
+  description = "The local Tart image to build on, for a distro with a directory under bases/. The tart_base role makes it on the hub. Empty for a distro that pulls its image from base_images."
+  default     = ""
 }
 
 variable "image_tag" {
@@ -81,31 +87,39 @@ locals {
     ubuntu = "ghcr.io/cirruslabs/ubuntu:24.04"
     debian = "ghcr.io/cirruslabs/debian:trixie"
     fedora = "ghcr.io/cirruslabs/fedora:42"
+    # Cirrus Labs publishes no openSUSE image. The hub makes one from
+    # openSUSE's own cloud image: bases/opensuse has the source and the seed
+    # of its first boot, and images.yml passes its name in base_image.
+    opensuse = var.base_image
   }
 
   # The packages that osapi's behaviors run, so the lab can test them:
   # - Docker, for the container behaviors: docker.io on Ubuntu and Debian,
-  #   moby-engine on Fedora. Both have the daemon and the CLI. The agent runs
+  #   moby-engine on Fedora, docker on openSUSE. Each has the daemon and the
+  #   CLI. The agent runs
   #   as root, so no user joins the docker group.
   # - chrony, for the ntp behavior, which runs chronyc. On Ubuntu and Debian
   #   it replaces systemd-timesyncd.
   # The agent reports a behavior's program that the image lacks as
   # missing_programs, and the integration test TestPrograms fails on it.
   install_packages = {
-    ubuntu = ["apt-get update -q", "DEBIAN_FRONTEND=noninteractive apt-get install -y -q docker.io chrony"]
-    debian = ["apt-get update -q", "DEBIAN_FRONTEND=noninteractive apt-get install -y -q docker.io chrony"]
-    fedora = ["dnf install -y -q moby-engine chrony"]
+    ubuntu   = ["apt-get update -q", "DEBIAN_FRONTEND=noninteractive apt-get install -y -q docker.io chrony"]
+    debian   = ["apt-get update -q", "DEBIAN_FRONTEND=noninteractive apt-get install -y -q docker.io chrony"]
+    fedora   = ["dnf install -y -q moby-engine chrony"]
+    opensuse = ["zypper --non-interactive --quiet install --no-recommends docker chrony"]
   }
 
-  # Fedora has no provider of its own, so its agent runs the generic Linux
-  # providers with IGNORE_LINUX and shows what osapi skips.
+  # Fedora and openSUSE have no provider of their own, so their agents run the
+  # generic Linux providers with IGNORE_LINUX and show what osapi skips.
+  ignore_linux_dropin = [
+    "install -d -m 0755 /etc/systemd/system/osapi-agent.service.d",
+    "install -m 0644 /tmp/lab/agent-dropin.conf /etc/systemd/system/osapi-agent.service.d/lab.conf",
+  ]
   agent_dropin = {
-    ubuntu = []
-    debian = []
-    fedora = [
-      "install -d -m 0755 /etc/systemd/system/osapi-agent.service.d",
-      "install -m 0644 /tmp/lab/agent-dropin.conf /etc/systemd/system/osapi-agent.service.d/lab.conf",
-    ]
+    ubuntu   = []
+    debian   = []
+    fedora   = local.ignore_linux_dropin
+    opensuse = local.ignore_linux_dropin
   }
 
   image = "img-${var.vm}-${var.image_tag}"
@@ -128,7 +142,8 @@ source "tart-cli" "vm" {
   memory_gb    = 2
   disk_size_gb = 20
   headless     = true
-  # The Cirrus Labs Linux images ship with this account.
+  # The Cirrus Labs Linux images ship with this account, and the seed of a
+  # base under bases/ makes it.
   ssh_username = "admin"
   ssh_password = "admin"
   ssh_timeout  = "180s"

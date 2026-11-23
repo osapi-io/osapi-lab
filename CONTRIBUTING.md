@@ -164,12 +164,22 @@ what must exist outside the image, the NATS user of each VM, and passes its
 credential to the build in `PKR_VAR_nats_creds`. Then it clones the VMs. Nothing
 logs in to a running VM to change it.
 
+**Pull a base image if you can.** The images of Ubuntu, Debian and Fedora start
+from the Tart images of Cirrus Labs. Cirrus Labs publishes no openSUSE image.
+Thus `packer/bases/opensuse` has the source of a base that the hub makes: the
+URL and the checksum of the official qcow2 cloud image of openSUSE, and a
+cloud-init seed. The `tart_base` role downloads the image, writes it as the raw
+disk of a Tart VM, and boots it one time with the seed. The seed makes the
+`admin` account and stops the VM. A change to a file in that directory makes a
+new base, and the images that use it bake again.
+
 **Put behavior in a role. A playbook only lists roles.** A role is the unit that
-you use again. The general roles are `packer`, `tart_vm`, `launchd` and
-`firewall`. They know nothing about osapi. They get their inputs as variables.
-Each role declares these variables with defaults in its `defaults/main.yml`. The
-osapi roles (`build`, `secrets`, `hub`, `lab_vm`, `client`) use the general
-roles. Make a new role a general role, unless it must know about osapi.
+you use again. The general roles are `packer`, `tart_vm`, `tart_base`, `launchd`
+and `firewall`. They know nothing about osapi. They get their inputs as
+variables. Each role declares these variables with defaults in its
+`defaults/main.yml`. The osapi roles (`build`, `secrets`, `hub`, `lab_vm`,
+`client`) use the general roles. Make a new role a general role, unless it must
+know about osapi.
 
 **Make each role safe to run two times.** A task reports `changed` only when it
 changed something. Thus the second run of a playbook reports `changed=0`.

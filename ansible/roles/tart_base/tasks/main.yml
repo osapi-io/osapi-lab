@@ -1,0 +1,117 @@
+---
+- name: Check the tart_base arguments
+  ansible.builtin.assert:
+    that:
+      - tart_base_name | length > 0
+      - tart_base_source_dir | length > 0
+      - tart_base_work_dir | length > 0
+    quiet: true
+
+- name: List the local images
+  ansible.builtin.command: tart list --quiet --source local
+  register: tart_base_list
+  changed_when: false
+  check_mode: false
+
+- name: Make the image {{ tart_base_name }}
+  when: tart_base_name not in tart_base_list.stdout_lines
+  vars:
+    tart_base_source: "{{ lookup('ansible.builtin.file', tart_base_source_dir ~ '/source.yml') | from_yaml }}"
+    # The VM has this name until its first boot ends, so a run that fails
+    # half-way leaves no image that a build would use.
+    tart_base_tmp: "{{ tart_base_name }}-new"
+  block:
+    - name: Create the work directory
+      ansible.builtin.file:
+        path: "{{ tart_base_work_dir }}/seed"
+        state: directory
+        mode: "0700"
+
+    - name: Download the disk image
+      ansible.builtin.get_url:
+        url: "{{ tart_base_source.url }}"
+        dest: "{{ tart_base_work_dir }}/disk.qcow2"
+        checksum: "sha256:{{ tart_base_source.sha256 }}"
+        mode: "0600"
+
+    # The hub has no qemu-img; the script reads the qcow2 format itself.
+    - name: Write the disk image as a raw disk
+      ansible.builtin.script:
+        cmd: qcow2_to_raw.py {{ tart_base_work_dir }}/disk.qcow2 {{ tart_base_work_dir }}/disk.raw
+        executable: python3
+      changed_when: true
+
+    - name: Copy the cloud-init seed
+      ansible.builtin.copy:
+        src: "{{ tart_base_source_dir }}/{{ item }}"
+        dest: "{{ tart_base_work_dir }}/seed/{{ item }}"
+        mode: "0600"
+      loop: [user-data, meta-data]
+
+    # cloud-init finds a NoCloud seed on a volume with the label cidata.
+    - name: Make the seed disk
+      ansible.builtin.command:
+        argv:
+          - hdiutil
+          - makehybrid
+          - -quiet
+          - -ov
+          - -iso
+          - -joliet
+          - -default-volume-name
+          - cidata
+          - -o
+          - "{{ tart_base_work_dir }}/seed.iso"
+          - "{{ tart_base_work_dir }}/seed"
+      changed_when: true
+
+    - name: Make the VM from the raw disk
+      ansible.builtin.shell: |
+        set -eu
+        tart delete {{ tart_base_tmp }} 2>/dev/null || true
+        tart create --linux --disk-size 1 {{ tart_base_tmp }}
+        tart set {{ tart_base_tmp }} --disk {{ tart_base_work_dir }}/disk.raw
+        tart set {{ tart_base_tmp }} --disk-size {{ tart_base_disk_gb }}
+      changed_when: true
+
+    # The seed powers the VM off at the end of its first boot, and tart run
+    # then exits.
+    - name: Boot the VM once with the seed
+      ansible.builtin.command:
+        argv:
+          - tart
+          - run
+          - --no-graphics
+          - --disk
+          - "{{ tart_base_work_dir }}/seed.iso:ro"
+          - "{{ tart_base_tmp }}"
+      async: "{{ tart_base_boot_timeout }}"
+      poll: 5
+      changed_when: true
+
+    - name: Name the image {{ tart_base_name }}
+      ansible.builtin.command: tart rename {{ tart_base_tmp }} {{ tart_base_name }}
+      changed_when: true
+
+    - name: Delete the old versions of the image
+      when: tart_base_prefix | length > 0
+      ansible.builtin.command: tart delete {{ item }}
+      loop: >-
+        {{ tart_base_list.stdout_lines | select('match', '^' ~ (tart_base_prefix | regex_escape))
+           | reject('equalto', tart_base_name) | list }}
+      changed_when: true
+  rescue:
+    - name: Delete the VM that did not finish {{ tart_base_tmp }}
+      ansible.builtin.shell: |
+        tart stop {{ tart_base_tmp }} 2>/dev/null || true
+        tart delete {{ tart_base_tmp }} 2>/dev/null || true
+      changed_when: true
+
+    - name: Stop on the failure
+      ansible.builtin.fail:
+        msg: The image {{ tart_base_name }} was not made. The failed task is above.
+  always:
+    - name: Delete the work directory
+      ansible.builtin.file:
+        path: "{{ tart_base_work_dir }}"
+        state: absent

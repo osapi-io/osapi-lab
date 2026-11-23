@@ -1,0 +1,23 @@
+---
+# One local Tart image, made from a distribution's own cloud disk image, for a
+# distribution that publishes no Tart image. The hub downloads the qcow2 image,
+# checks its checksum, writes it as the raw disk of a new Tart VM, and boots it
+# once with a cloud-init NoCloud seed. The seed does the first-boot setup and
+# powers the VM off. Packer then builds on the image as on a Cirrus Labs one.
+
+# The image's name in Tart. Required. A different name is a different image: an
+# image of that name that exists already is used as it is.
+tart_base_name: ""
+# Each other image whose name starts with this prefix is an old version, and is
+# deleted when the new one is made. Empty deletes nothing.
+tart_base_prefix: ""
+# The directory, on the machine that runs Ansible, with source.yml (url,
+# sha256), user-data and meta-data. Required.
+tart_base_source_dir: ""
+# A directory on the hub for the download and the seed, deleted at the end.
+tart_base_work_dir: ""
+# The size of the image's disk. The seed's cloud-init grows the root
+# filesystem to fill it.
+tart_base_disk_gb: 20
+# Seconds the first boot can take before it powers off.
+tart_base_boot_timeout: 900

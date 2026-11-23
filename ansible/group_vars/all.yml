@@ -8,6 +8,8 @@ lab_vms:
     image: debian
   - name: fedora-1
     image: fedora
+  - name: opensuse-1
+    image: opensuse
 
 # Images built by packer/lab.pkr.hcl. Ubuntu and Debian are osapi's debian
 # platform; anything else gets IGNORE_LINUX so the agent starts at all.
@@ -18,7 +20,8 @@ lab_root: "{{ playbook_dir | dirname | dirname }}"
 lab_state: "{{ lab_root }}/.lab"
 lab_ssh_key: "{{ lab_state }}/ssh/id_ed25519"
 
-# The account the Cirrus Labs base images ship with.
+# The account the Cirrus Labs base images ship with, and that the seed of a
+# base under packer/bases makes.
 lab_vm_user: admin
 
 # Every osapi process in the lab uses osapi's default ports and namespace.

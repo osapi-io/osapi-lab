@@ -41,8 +41,8 @@ not need a checkout of this repository.
    │ osapi controller  :8080  │           └──────────────────────────┘
    └────────────▲─────────────┘
                 │
-     ┌──────────┼───────────┐
- ubuntu-1    debian-1    fedora-1        Tart VMs, one agent each
+    ┌─────────┬─┴───────┬──────────┐
+ ubuntu-1  debian-1  fedora-1  opensuse-1   Tart VMs, one agent each
 ```
 
 To run the lab, see [Run the lab](CONTRIBUTING.md#run-the-lab). The
