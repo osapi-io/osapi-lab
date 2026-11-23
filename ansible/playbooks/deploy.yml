@@ -1,8 +1,9 @@
 ---
 # Builds the osapi checkout, bakes an image for each VM whose build or packer
 # directory changed, and replaces those VMs with clones of their new images.
-# A VM is its image: nothing is copied into a running VM. The hub's firewall
-# step needs passwordless sudo.
+# A VM is its image: nothing is copied into a running VM. The exception is a VM
+# with upgrade_in_place: true, which upgrade.yml upgrades as a host that runs
+# for a long time. The hub's firewall step needs passwordless sudo.
 - name: Lock
   ansible.builtin.import_playbook: lock.yml
 - name: Build
@@ -15,6 +16,8 @@
     lab_images_prune: true
 - name: VMs
   ansible.builtin.import_playbook: vms.yml
+- name: Upgrade
+  ansible.builtin.import_playbook: upgrade.yml
 - name: Ready
   ansible.builtin.import_playbook: ready.yml
 - name: Client

@@ -23,8 +23,8 @@
 <p align="center">
 Ansible builds your osapi checkout. Packer bakes one Tart image for each VM: the
 build, its config and each package. Then Ansible clones the VMs from these
-images. Nothing configures a VM after it boots. You do all of it from your own
-machine.
+images. Nothing configures a VM after it boots, except `debian-lts`, which each
+deploy upgrades in place. You do all of it from your own machine.
 </p>
 
 ## 🚀 Usage
@@ -41,8 +41,8 @@ not need a checkout of this repository.
    │ osapi controller  :8080  │           └──────────────────────────┘
    └────────────▲─────────────┘
                 │
-    ┌─────────┬─┴───────┬──────────┐
- ubuntu-1  debian-1  fedora-1  opensuse-1   Tart VMs, one agent each
+    ┌─────────┬─┴───────┬──────────┬───────────┐
+ ubuntu-1  debian-1  fedora-1  opensuse-1  debian-lts   Tart VMs, one agent each
 ```
 
 To run the lab, see [Run the lab](CONTRIBUTING.md#run-the-lab). The

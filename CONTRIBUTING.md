@@ -105,6 +105,15 @@ Do not keep work inside a VM. A VM is its image: `deploy` replaces a VM with a
 clone of its new image when your osapi checkout or `packer/` changed, and
 `rebuild` replaces each VM. You then lose all changes inside the VMs.
 
+`debian-lts` is the exception. It has `upgrade_in_place: true` in
+`ansible/group_vars/all.yml`. `deploy` does not replace it. `deploy` copies the
+new linux build into it, restarts its agent, and waits until the agent is
+`Ready`. The run fails if the agent does not come back. Thus `debian-lts` keeps
+its machine ID, its consumers and its job history, as a host that an operator
+upgrades. Its `IMAGE` in `just list` stays the image of its first clone, and its
+`OSAPI` is the last build. `just rebuild` replaces it, and its history starts
+again.
+
 If the checkout and `packer/` did not change, `deploy` changes nothing. `just`
 with no arguments lists all the recipes, not only these.
 
@@ -142,11 +151,11 @@ A VM in good condition has `STATE` `running`, `RUN BY` `launchd` and `AGENT`
 version contains that commit. If the values are different, find the row in this
 table:
 
-| You see                               | It means                                       | Run           |
-| ------------------------------------- | ---------------------------------------------- | ------------- |
-| `IMAGE` tag older than the last build | the VMs run an earlier build                   | `just deploy` |
-| `RUN BY manual`, or `STATE absent`    | launchd does not run the VM, or the VM is gone | `just site`   |
-| `AGENT` is not `active`               | the agent stopped; read the logs of the hub    | `just logs`   |
+| You see                               | It means                                        | Run           |
+| ------------------------------------- | ----------------------------------------------- | ------------- |
+| `IMAGE` tag older than the last build | the VMs run an earlier build (not `debian-lts`) | `just deploy` |
+| `RUN BY manual`, or `STATE absent`    | launchd does not run the VM, or the VM is gone  | `just site`   |
+| `AGENT` is not `active`               | the agent stopped; read the logs of the hub     | `just logs`   |
 
 ## Make a change
 

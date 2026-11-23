@@ -1,6 +1,12 @@
 ---
 # The lab's VMs. The name is the VM's hostname and its agent's hostname; the
-# image is the Packer build it is cloned from (lab-<image> on the hub).
+# image is the Packer build it is cloned from (img-<name>-<tag> on the hub).
+#
+# A VM with upgrade_in_place: true is cloned one time and then kept: deploy
+# bakes no new image for it and does not clone it again. The upgrade playbook
+# copies each new linux build into it and restarts its agent. Thus it keeps its
+# machine ID, its consumers and its job history across builds, as a host that
+# runs for a long time does (osapi-io/osapi-lab#49). `just rebuild` replaces it.
 lab_vms:
   - name: ubuntu-1
     image: ubuntu
@@ -10,6 +16,9 @@ lab_vms:
     image: fedora
   - name: opensuse-1
     image: opensuse
+  - name: debian-lts
+    image: debian
+    upgrade_in_place: true
 
 # Images built by packer/lab.pkr.hcl. Ubuntu and Debian are osapi's debian
 # platform; anything else gets IGNORE_LINUX so the agent starts at all.
