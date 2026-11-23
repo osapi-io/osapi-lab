@@ -115,11 +115,15 @@
       ansible.builtin.include_role:
         name: tart_base
       vars:
-        tart_base_name: "{{ lab_bases[item] }}"
-        tart_base_prefix: base-{{ item }}-
-        tart_base_source_dir: "{{ lab_root }}/packer/bases/{{ item }}"
-        tart_base_work_dir: "{{ lab_hub_state_abs }}/bases/{{ item }}"
+        tart_base_name: "{{ lab_bases[images_base] }}"
+        tart_base_prefix: base-{{ images_base }}-
+        tart_base_source_dir: "{{ lab_root }}/packer/bases/{{ images_base }}"
+        tart_base_work_dir: "{{ lab_hub_state_abs }}/bases/{{ images_base }}"
       loop: "{{ images_wanted | map(attribute='image') | unique | select('in', lab_bases) | list }}"
+      # The role loops too; its loop must not reuse this loop's variable,
+      # because these vars are evaluated lazily inside it.
+      loop_control:
+        loop_var: images_base
     - name: Build the image of each VM
       ansible.builtin.include_role:
         name: packer
