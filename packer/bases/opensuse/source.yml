@@ -1,0 +1,9 @@
+---
+# The openSUSE Leap 16.0 Minimal VM, Cloud flavor, for arm64: the official
+# image that openSUSE builds with kiwi. Cirrus Labs publishes no openSUSE Tart
+# image, so the hub makes a Tart image from this one (the tart_base role).
+# Pin a build, not the link that always points at the latest, so the bytes
+# match the checksum. openSUSE lists the builds and their .sha256 files at
+# https://download.opensuse.org/distribution/leap/16.0/appliances/
+url: https://download.opensuse.org/distribution/leap/16.0/appliances/Leap-16.0-Minimal-VM.aarch64-Cloud-Build18.95.qcow2
+sha256: 9158494113be517a940a32394200ccd87ab1abed427317a4e93e4aa9a070b6eb

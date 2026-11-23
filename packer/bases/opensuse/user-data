@@ -1,0 +1,17 @@
+#cloud-config
+# The first boot of the openSUSE base, from a NoCloud seed. It makes the
+# account that the Cirrus Labs images ship with (admin, password admin), so
+# packer/lab.pkr.hcl builds each image the same way. Then it turns cloud-init
+# off, so no clone runs it again, and powers off, which ends the step.
+users:
+  - name: admin
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    lock_passwd: false
+    plain_text_passwd: admin
+    shell: /bin/bash
+ssh_pwauth: true
+runcmd:
+  - touch /etc/cloud/cloud-init.disabled
+power_state:
+  mode: poweroff
+  condition: true
