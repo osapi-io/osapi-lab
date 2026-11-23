@@ -43,10 +43,12 @@
 
     - name: Copy the cloud-init seed
       ansible.builtin.copy:
-        src: "{{ tart_base_source_dir }}/{{ item }}"
-        dest: "{{ tart_base_work_dir }}/seed/{{ item }}"
+        src: "{{ tart_base_source_dir }}/{{ tart_base_seed }}"
+        dest: "{{ tart_base_work_dir }}/seed/{{ tart_base_seed }}"
         mode: "0600"
       loop: [user-data, meta-data]
+      loop_control:
+        loop_var: tart_base_seed
 
     # cloud-init finds a NoCloud seed on a volume with the label cidata.
     - name: Make the seed disk
@@ -95,10 +97,12 @@
 
     - name: Delete the old versions of the image
       when: tart_base_prefix | length > 0
-      ansible.builtin.command: tart delete {{ item }}
+      ansible.builtin.command: tart delete {{ tart_base_old }}
       loop: >-
         {{ tart_base_list.stdout_lines | select('match', '^' ~ (tart_base_prefix | regex_escape))
            | reject('equalto', tart_base_name) | list }}
+      loop_control:
+        loop_var: tart_base_old
       changed_when: true
   rescue:
     - name: Delete the VM that did not finish {{ tart_base_tmp }}
