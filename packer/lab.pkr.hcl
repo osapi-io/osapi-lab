@@ -83,13 +83,18 @@ locals {
     fedora = "ghcr.io/cirruslabs/fedora:42"
   }
 
-  # Docker, so the lab can test osapi's container operations: docker.io on
-  # Ubuntu and Debian, moby-engine on Fedora. Both have the daemon and the CLI.
-  # The agent runs as root, so no user joins the docker group.
-  install_docker = {
-    ubuntu = ["apt-get update -q", "DEBIAN_FRONTEND=noninteractive apt-get install -y -q docker.io"]
-    debian = ["apt-get update -q", "DEBIAN_FRONTEND=noninteractive apt-get install -y -q docker.io"]
-    fedora = ["dnf install -y -q moby-engine"]
+  # The packages that osapi's behaviors run, so the lab can test them:
+  # - Docker, for the container behaviors: docker.io on Ubuntu and Debian,
+  #   moby-engine on Fedora. Both have the daemon and the CLI. The agent runs
+  #   as root, so no user joins the docker group.
+  # - chrony, for the ntp behavior, which runs chronyc. On Ubuntu and Debian
+  #   it replaces systemd-timesyncd.
+  # The agent reports a behavior's program that the image lacks as
+  # missing_programs, and the integration test TestPrograms fails on it.
+  install_packages = {
+    ubuntu = ["apt-get update -q", "DEBIAN_FRONTEND=noninteractive apt-get install -y -q docker.io chrony"]
+    debian = ["apt-get update -q", "DEBIAN_FRONTEND=noninteractive apt-get install -y -q docker.io chrony"]
+    fedora = ["dnf install -y -q moby-engine chrony"]
   }
 
   # Fedora has no provider of its own, so its agent runs the generic Linux
@@ -188,9 +193,10 @@ build {
         "chmod 0440 /etc/sudoers.d/admin",
         "hostnamectl set-hostname ${var.vm}",
       ],
-      local.install_docker[var.distro],
+      local.install_packages[var.distro],
       [
         "systemctl enable docker.service",
+        "systemctl enable chronyd.service || systemctl enable chrony.service",
         # osapi's ping provider uses unprivileged ICMP sockets.
         "install -m 0644 /tmp/lab/90-osapi-ping.conf /etc/sysctl.d/90-osapi-ping.conf",
         "install -d -m 0755 /etc/osapi /var/lib/osapi /etc/osapi-lab",
