@@ -1,12 +1,19 @@
 ---
 # Gives back the lock when the outermost playbook of this run ends. A
-# playbook that another one imported keeps it for the rest of the run.
+# playbook that another one imported keeps it for the rest of the run. A
+# session keeps it until `just unlock` runs with -e lab_session_release=true.
+- name: Name the session of this run
+  ansible.builtin.include_tasks: session.yml
+
 - name: Count the playbooks of this run that hold the lock
   ansible.builtin.set_fact:
     lock_depth: "{{ (lock_depth | default(1) | int) - 1 }}"
 
 - name: Give back the lock
-  when: lock_depth | int <= 0 and lock_holder is defined
+  when:
+    - lock_depth | int <= 0
+    - lock_holder is defined
+    - not lock_holder.startswith('session ') or (lab_session_release | default(false) | bool)
   ansible.builtin.shell: |
     set -u
     [ -f "{{ lock_dir }}/holder" ] || exit 0

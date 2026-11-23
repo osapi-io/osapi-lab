@@ -4,6 +4,15 @@
 # and the process of its ansible-playbook, so a playbook that a run imports
 # takes the lock it already holds, and the lock of a run that died is broken.
 # -e lab_lock_break=true breaks a lock that a run on another machine left.
+#
+# A session holds the lock across runs, from a deploy through the tests after
+# it (osapi-io/osapi-lab#41). `just lock <name>` takes it with LAB_SESSION set,
+# each run with the same LAB_SESSION is its holder and keeps it, and only
+# `just unlock <name>` gives it back. A session older than lock_session_ttl
+# hours is stale, and the next run breaks it.
+- name: Name the session of this run
+  ansible.builtin.include_tasks: session.yml
+
 - name: Name this run, for the lock
   when: lock_holder is not defined
   delegate_to: localhost
@@ -48,6 +57,21 @@
   delegate_to: localhost
   ansible.builtin.shell: |
     set -uo pipefail
+    case "{{ lock_other_holder }}" in
+      session\ *)
+        since=$(sed -n 's/^since //p' <<'HOLDER'
+    {{ lock_current.stdout }}
+    HOLDER
+        )
+        then=$(date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$since" +%s 2>/dev/null || echo 0)
+        if [ $(( $(date -u +%s) - then )) -gt $(( {{ lock_session_ttl }} * 3600 )) ]; then
+          echo gone
+        else
+          echo session
+        fi
+        exit 0
+        ;;
+    esac
     host=$(echo "{{ lock_other_holder }}" | cut -d' ' -f1)
     pid=$(echo "{{ lock_other_holder }}" | cut -d' ' -f2)
     if [ "$host" != "$(hostname -s)" ]; then echo elsewhere; exit 0; fi
@@ -69,8 +93,9 @@
   ansible.builtin.fail:
     msg: >-
       Another lab run holds the lock ({{ lock_current.stdout_lines | join('; ') }}).
-      Two runs at once delete each other's images. Wait for it to finish. If it
-      is gone, run again with -e lab_lock_break=true.
+      Two runs at once delete each other's images. Wait for it to finish, or
+      for the session to run `just unlock`. If it is gone, run again with
+      -e lab_lock_break=true.
 
 - name: Break the lock of a run that is gone
   when: lock_other | bool
