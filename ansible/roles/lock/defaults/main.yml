@@ -2,3 +2,6 @@
 # The lock that one lab run holds while it changes the images or the VMs. It
 # is a directory, so taking it is one atomic mkdir.
 lock_dir: "{{ lab_hub_state_abs }}/lock"
+
+# The hours after which a session's lock is stale: the next run breaks it.
+lock_session_ttl: 2

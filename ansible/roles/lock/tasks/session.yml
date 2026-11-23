@@ -1,0 +1,17 @@
+---
+# Names the holder of a session's lock when LAB_SESSION is set, so a run
+# in the session and `just unlock` name the same holder.
+- name: Name the session of this run
+  when:
+    - lock_holder is not defined
+    - lookup('ansible.builtin.env', 'LAB_SESSION') | length > 0
+  delegate_to: localhost
+  ansible.builtin.command: hostname -s
+  register: lock_session_host
+  changed_when: false
+  check_mode: false
+
+- name: Keep the name of the session
+  when: lock_session_host is not skipped and lock_session_host.stdout is defined
+  ansible.builtin.set_fact:
+    lock_holder: "session {{ lock_session_host.stdout }} {{ lookup('ansible.builtin.env', 'LAB_SESSION') }}"
