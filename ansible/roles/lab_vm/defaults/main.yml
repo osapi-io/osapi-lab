@@ -8,3 +8,6 @@ lab_vm_tasks: main
 # Reclone the VM even when it was cloned from the image it should run. It is
 # recloned anyway whenever that image changes.
 lab_vm_recreate: false
+# The VM keeps its disk across builds, and the upgrade playbook copies each new
+# build into it. From upgrade_in_place in group_vars/all.yml.
+lab_vm_in_place: "{{ lab_vm_entry.upgrade_in_place | default(false) | bool }}"

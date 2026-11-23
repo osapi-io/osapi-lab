@@ -1,0 +1,100 @@
+---
+# Upgrades each VM that has upgrade_in_place: true, as an operator upgrades a
+# host that runs for a long time (osapi-io/osapi-lab#49). It copies the new
+# linux build to /usr/local/bin/osapi, restarts osapi-agent, and waits until
+# the controller reports a new agent process that is Ready. The run fails if
+# the agent does not come back. The VM keeps its machine ID, the agent's KV
+# records, its consumers and its job history.
+#
+# This is the one place where the lab changes a running VM. Each other VM is its
+# image. vms.yml adds the VMs that upgrade in place to the vms_in_place group.
+- name: Read the agents before the upgrade
+  hosts: hub
+  gather_facts: true
+  gather_subset: [min]
+  tasks:
+    - name: List the agents
+      when: groups['vms_in_place'] | default([]) | length > 0
+      ansible.builtin.command:
+        argv:
+          - "{{ lab_hub_state_abs }}/bin/osapi-darwin-arm64"
+          - -f
+          - "{{ lab_hub_state_abs }}/config/hub.yaml"
+          - client
+          - agent
+          - list
+          - --json
+      register: upgrade_before
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+- name: Upgrade in place
+  hosts: vms_in_place
+  gather_facts: false
+  become: true
+  tasks:
+    # copy writes a temporary file and renames it over the target, so the agent
+    # that runs keeps its own inode until the restart.
+    - name: Copy the linux build
+      ansible.builtin.copy:
+        src: "{{ lab_state }}/bin/osapi-linux-arm64"
+        dest: /usr/local/bin/osapi
+        mode: "0755"
+      register: upgrade_binary
+      notify:
+        - Record the build that the VM runs
+        - Restart the agent
+
+  # The handlers run at the end of this play, before the wait below.
+  handlers:
+    # /etc/osapi-lab/image keeps the image that the VM was cloned from; the
+    # revision is now the build that it runs, which list.yml shows.
+    - name: Record the build that the VM runs
+      ansible.builtin.lineinfile:
+        path: /etc/osapi-lab/image
+        regexp: ^revision=
+        line: revision={{ lab_build_revision }}
+
+    - name: Restart the agent
+      ansible.builtin.systemd_service:
+        name: osapi-agent
+        state: restarted
+
+- name: Wait for the upgraded agents
+  hosts: hub
+  gather_facts: true
+  gather_subset: [min]
+  tasks:
+    # The controller can report the old process as Ready for some seconds after
+    # the restart. Thus the wait is for a different started_at, as well as for
+    # Ready.
+    - name: Wait for each upgraded agent to start again and be Ready
+      ansible.builtin.command:
+        argv:
+          - "{{ lab_hub_state_abs }}/bin/osapi-darwin-arm64"
+          - -f
+          - "{{ lab_hub_state_abs }}/config/hub.yaml"
+          - client
+          - agent
+          - list
+          - --json
+      vars:
+        upgrade_old: >-
+          {{ ((upgrade_before.stdout | default('') or '{}') | from_json)['items'] | default([])
+             | selectattr('hostname', 'equalto', item) | map(attribute='started_at') | list }}
+        upgrade_new: >-
+          {{ ((upgrade_after.stdout | default('') or '{}') | from_json)['items'] | default([])
+             | selectattr('hostname', 'equalto', item) | selectattr('state', 'equalto', 'Ready')
+             | map(attribute='started_at') | list }}
+      loop: "{{ groups['vms_in_place'] | default([]) }}"
+      when: hostvars[item].upgrade_binary is defined and hostvars[item].upgrade_binary is changed
+      register: upgrade_after
+      until: >-
+        upgrade_after.rc == 0
+        and upgrade_new | length > 0
+        and upgrade_new | reject('in', upgrade_old) | list | length > 0
+      retries: 36
+      delay: 5
+      changed_when: false
+      check_mode: false

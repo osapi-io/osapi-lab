@@ -6,7 +6,8 @@
 #
 # An image is built again when it is missing, or when what it was baked from
 # changed: the osapi build, or the packer directory. lab_images_rebuild=true
-# builds each one again.
+# builds each one again. A VM that upgrades in place gets an image only when
+# the VM does not exist yet.
 - name: Lock
   ansible.builtin.import_playbook: lock.yml
 - name: Images
@@ -70,8 +71,16 @@
       changed_when: false
       failed_when: false
       check_mode: false
+    # A VM that upgrades in place clones its image one time. While the VM
+    # exists, it needs no new image: the upgrade playbook copies each build
+    # into it. lab_images_rebuild=true bakes it again, for `just rebuild`.
     - name: Choose the images to build
       vars:
+        images_kept: >-
+          {{ lab_vms | selectattr('upgrade_in_place', 'defined') | selectattr('upgrade_in_place')
+             | selectattr('name', 'in', images_present.stdout_lines | select('match', '^lab-')
+                                        | map('regex_replace', '^lab-', '') | list)
+             | list }}
         images_stale: >-
           {{ images_baked.results | rejectattr('stdout', 'equalto', lab_image_fingerprint)
              | map(attribute='item') | list }}
@@ -82,7 +91,7 @@
       ansible.builtin.set_fact:
         images_wanted: >-
           {{ lab_vms if (lab_images_rebuild | default(false) | bool)
-             else (images_stale + images_missing) | unique | list }}
+             else (images_stale + images_missing) | unique | reject('in', images_kept) | list }}
   tasks:
     - name: Create the image records directory
       ansible.builtin.file:

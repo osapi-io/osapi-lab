@@ -37,11 +37,24 @@
     state: directory
     mode: "0700"
 
+# A VM that upgrades in place is cloned only when it does not exist, or when
+# lab_vm_recreate asks for it. A new build does not clone it again: the upgrade
+# playbook copies the build into it. Thus it keeps its machine ID.
+- name: List the VMs for {{ lab_vm_entry.name }}
+  when: lab_vm_in_place | bool
+  ansible.builtin.command: tart list --quiet
+  register: lab_vm_list
+  changed_when: false
+  check_mode: false
+
 - name: Decide whether to clone again {{ lab_vm_entry.name }}
   ansible.builtin.set_fact:
     lab_vm_reclone: >-
       {{ (lab_vm_recreate | bool)
-         or (lab_vm_tasks == 'main' and (lab_vm_source.stdout | default('')) != lab_vm_wanted) }}
+         or (lab_vm_tasks == 'main' and lab_vm_in_place | bool
+             and ('lab-' ~ lab_vm_entry.name) not in lab_vm_list.stdout_lines)
+         or (lab_vm_tasks == 'main' and not (lab_vm_in_place | bool)
+             and (lab_vm_source.stdout | default('')) != lab_vm_wanted) }}
 
 # A VM that is cloned again has a new machine ID, and asks to join as a new
 # machine. The old machine stays admitted, with its key, unless it is deleted
@@ -97,7 +110,7 @@
     tart_vm_launchd_label: "io.osapi.lab.vm.{{ lab_vm_entry.name }}"
     tart_vm_log: "{{ lab_hub_state_abs }}/log/vm-{{ lab_vm_entry.name }}.log"
     tart_vm_inventory_name: "{{ lab_vm_entry.name }}"
-    tart_vm_groups: [vms]
+    tart_vm_groups: "{{ ['vms'] + (['vms_in_place'] if (lab_vm_in_place | bool) else []) }}"
     tart_vm_user: "{{ lab_vm_user }}"
     tart_vm_ssh_key: "{{ lab_ssh_key }}"
     # The VMs are on the hub's vmnet subnet, reachable only through the hub.
@@ -105,8 +118,9 @@
       -o ProxyJump={{ (ansible_user ~ '@') if ansible_user is defined else '' }}{{ ansible_host }}
       -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null
 
+# A VM that upgrades in place keeps the record of its first clone.
 - name: Record what the VM was cloned from {{ lab_vm_entry.name }}
-  when: lab_vm_tasks == 'main'
+  when: lab_vm_tasks == 'main' and (lab_vm_reclone | bool or not (lab_vm_in_place | bool))
   block:
     - name: Create the VM records directory
       ansible.builtin.file:

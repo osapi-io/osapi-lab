@@ -13,6 +13,8 @@
   ansible.builtin.import_playbook: images.yml
 - name: VMs
   ansible.builtin.import_playbook: vms.yml
+- name: Upgrade
+  ansible.builtin.import_playbook: upgrade.yml
 - name: Ready
   ansible.builtin.import_playbook: ready.yml
 - name: Client

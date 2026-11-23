@@ -16,6 +16,8 @@
   ansible.builtin.import_playbook: vms.yml
   vars:
     lab_vms_recreate: true
+- name: Upgrade
+  ansible.builtin.import_playbook: upgrade.yml
 - name: Ready
   ansible.builtin.import_playbook: ready.yml
 - name: Client
