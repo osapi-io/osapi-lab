@@ -89,6 +89,14 @@
     creates: "{{ hub_state }}/secrets/jetstream.key"
   register: hub_jetstream_key
 
+# The global account of the store from before the hub used operator mode. NATS
+# never loads it, so it stays plain when the store is encrypted. Nothing reads
+# it, so the role removes it.
+- name: Remove the global account that NATS does not load
+  ansible.builtin.file:
+    path: "{{ hub_state }}/jetstream/jetstream/$G"
+    state: absent
+
 - name: Let agents reach NATS through the firewall
   ansible.builtin.include_role:
     name: firewall
