@@ -57,6 +57,22 @@
     mode: "0600"
   register: hub_config
 
+# The controller does not start without the key of each vault of its config.
+- name: Make the key of the default vault
+  ansible.builtin.command:
+    argv:
+      - "{{ hub_state }}/bin/osapi-darwin-arm64"
+      - -f
+      - "{{ hub_state }}/config/hub.yaml"
+      - controller
+      - vault
+      - key
+      - create
+      - --name
+      - default
+  args:
+    creates: "{{ hub_state }}/secrets/vault-default.key"
+
 - name: Let agents reach NATS through the firewall
   ansible.builtin.include_role:
     name: firewall
