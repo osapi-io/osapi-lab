@@ -17,7 +17,11 @@ controller:
     url: {{ lab_controller_url }}
     job_timeout: 30s
     security:
-      signing_key: {{ lab_signing_key }}
+      signing_keys:
+{% for k in lab_signing_keys %}
+        - id: {{ k.id }}
+          key: {{ k.key }}
+{% endfor %}
       cors:
         allow_origins: []
   nats:

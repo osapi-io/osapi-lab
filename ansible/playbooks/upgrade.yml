@@ -34,6 +34,34 @@
   gather_facts: false
   become: true
   tasks:
+    # osapi-io/osapi#1249 changed controller.api.security.signing_key to the
+    # list signing_keys, and osapi does not load a config without the list. A VM
+    # that upgrades in place keeps the config of its image. Thus the upgrade
+    # changes the key to a list in the config, and removes a signing_key that is
+    # left, which osapi ignores.
+    - name: Read the config of the agent
+      ansible.builtin.slurp:
+        src: /etc/osapi/osapi.yaml
+      register: upgrade_config
+      no_log: true
+
+    - name: Change the signing key of the config to a list
+      when: "'signing_keys:' not in (upgrade_config.content | b64decode)"
+      ansible.builtin.replace:
+        path: /etc/osapi/osapi.yaml
+        regexp: '^(\s+)signing_key: (\S+)$'
+        replace: '\1signing_keys:\n\1  - id: unused\n\1    key: \2'
+      no_log: true
+      notify: Restart the agent
+
+    - name: Remove the old signing key from the config
+      ansible.builtin.replace:
+        path: /etc/osapi/osapi.yaml
+        regexp: '^\s+signing_key: \S+\n'
+        replace: ""
+      no_log: true
+      notify: Restart the agent
+
     # copy writes a temporary file and renames it over the target, so the agent
     # that runs keeps its own inode until the restart.
     - name: Copy the linux build
