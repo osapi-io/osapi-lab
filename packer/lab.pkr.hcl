@@ -100,11 +100,14 @@ locals {
   #   as root, so no user joins the docker group.
   # - chrony, for the ntp behavior, which runs chronyc. On Ubuntu and Debian
   #   it replaces systemd-timesyncd.
+  # - no unattended-upgrades on Ubuntu and Debian. A VM gets its packages when
+  #   the image is baked, and unattended-upgrades holds the dpkg lock after
+  #   boot, so the package write examples fail with exit status 100.
   # The agent reports a behavior's program that the image lacks as
   # missing_programs, and the integration test TestPrograms fails on it.
   install_packages = {
-    ubuntu   = ["apt-get update -q", "DEBIAN_FRONTEND=noninteractive apt-get install -y -q docker.io chrony"]
-    debian   = ["apt-get update -q", "DEBIAN_FRONTEND=noninteractive apt-get install -y -q docker.io chrony"]
+    ubuntu   = ["apt-get update -q", "DEBIAN_FRONTEND=noninteractive apt-get install -y -q docker.io chrony", "DEBIAN_FRONTEND=noninteractive apt-get purge -y -q unattended-upgrades"]
+    debian   = ["apt-get update -q", "DEBIAN_FRONTEND=noninteractive apt-get install -y -q docker.io chrony", "DEBIAN_FRONTEND=noninteractive apt-get purge -y -q unattended-upgrades"]
     fedora   = ["dnf install -y -q moby-engine chrony"]
     opensuse = ["zypper --non-interactive --quiet install --no-recommends docker chrony"]
   }

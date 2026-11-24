@@ -83,6 +83,19 @@
 
     # copy writes a temporary file and renames it over the target, so the agent
     # that runs keeps its own inode until the restart.
+    # The image of a VM that upgrades in place can have unattended-upgrades,
+    # which holds the dpkg lock after boot.
+    - name: Read the family of the OS
+      ansible.builtin.setup:
+        gather_subset: [min]
+
+    - name: Remove unattended-upgrades
+      when: ansible_facts.os_family == 'Debian'
+      ansible.builtin.apt:
+        name: unattended-upgrades
+        state: absent
+        purge: true
+
     - name: Copy the linux build
       ansible.builtin.copy:
         src: "{{ lab_state }}/bin/osapi-linux-arm64"

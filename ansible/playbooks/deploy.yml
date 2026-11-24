@@ -8,6 +8,10 @@
   ansible.builtin.import_playbook: lock.yml
 - name: Build
   ansible.builtin.import_playbook: build.yml
+# The secrets role checks the admin token against the signing keys on each run,
+# and signs it again when a key changed or it expires soon.
+- name: Secrets
+  ansible.builtin.import_playbook: secrets.yml
 - name: Hub
   ansible.builtin.import_playbook: hub.yml
 - name: Images
