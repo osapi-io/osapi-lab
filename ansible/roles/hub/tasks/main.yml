@@ -73,6 +73,22 @@
   args:
     creates: "{{ hub_state }}/secrets/vault-default.key"
 
+# The key that encrypts the JetStream store. creates keeps the first key: a
+# new key in its place makes each stream unreadable. The server encrypts the
+# plain store of an earlier deploy as it loads it.
+- name: Make the JetStream encryption key
+  ansible.builtin.command:
+    argv:
+      - "{{ hub_state }}/bin/osapi-darwin-arm64"
+      - -f
+      - "{{ hub_state }}/config/hub.yaml"
+      - nats
+      - key
+      - create
+  args:
+    creates: "{{ hub_state }}/secrets/jetstream.key"
+  register: hub_jetstream_key
+
 - name: Let agents reach NATS through the firewall
   ansible.builtin.include_role:
     name: firewall
@@ -150,7 +166,8 @@
     launchd_log: "{{ hub_state }}/log/{{ item.name }}.log"
     launchd_restart: >-
       {{ hub_binary is changed or hub_config is changed or hub_creds is changed
-         or hub_resolver is changed or (hub_restart | default(false) | bool) }}
+         or hub_resolver is changed or hub_jetstream_key is changed
+         or (hub_restart | default(false) | bool) }}
   loop:
     - { name: nats, command: [nats, start] }
     - { name: controller, command: [controller, start] }

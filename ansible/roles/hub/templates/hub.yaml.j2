@@ -69,6 +69,10 @@ nats:
     port: {{ lab_nats_port }}
     url: {{ lab_nats_url }}
     store_dir: {{ hub_state }}/jetstream
+    # Each stream and bucket in store_dir is encrypted with this key. The hub
+    # role makes it with osapi nats key create, one time.
+    jetstream:
+      key_file: {{ hub_state }}/secrets/jetstream.key
     namespace: osapi
     auth:
       type: operator
