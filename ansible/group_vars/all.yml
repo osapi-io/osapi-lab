@@ -45,6 +45,14 @@ lab_signing_key: "{{ lookup('ansible.builtin.file', lab_secrets_dir ~ '/signing_
 lab_token: "{{ lookup('ansible.builtin.file', lab_secrets_dir ~ '/token') }}"
 lab_agent_dummy_key: "{{ lookup('ansible.builtin.file', lab_secrets_dir ~ '/agent_dummy_key') }}"
 
+# controller.api.security.signing_keys of the hub and of client.yaml. The first
+# key signs each token and puts its id in the token's kid; each key verifies the
+# tokens with its id. To change the key, put a new one first, and remove the old
+# one when its tokens expire.
+lab_signing_keys:
+  - id: lab
+    key: "{{ lab_signing_key }}"
+
 # NATS runs in operator (decentralized JWT) mode, as a NATS someone already runs
 # would. nsc keeps the operator, its accounts and their keys here, and each NATS
 # user's credentials file, one per osapi process, goes in lab_nats_creds_dir.
