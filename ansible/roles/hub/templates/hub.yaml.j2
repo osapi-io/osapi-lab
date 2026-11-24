@@ -38,10 +38,10 @@ controller:
     enabled: true
     host: 127.0.0.1
     port: 9090
-  # Agents enroll with a key and every job response is verified against it.
-  # auto_admit, because each push reclones the VMs and they ask to join afresh.
+  # PKI is always on: agents enroll with a key, and every job response is
+  # verified against it. auto_admit, because each push reclones the VMs and
+  # they ask to join afresh.
   pki:
-    enabled: true
     key_dir: {{ hub_state }}/pki
     auto_admit: true
     # A VM that is cloned again is deleted from admission first (lab_vm). This
