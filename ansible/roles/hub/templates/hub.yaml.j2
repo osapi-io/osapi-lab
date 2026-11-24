@@ -52,8 +52,8 @@ controller:
     enabled: true
     notifier: log
     renotify_interval: 5m
-  # The vault of the secrets. The hub role makes its key before the controller
-  # starts.
+  # The vault of the secrets, with its key in the hub's state, not in
+  # /etc/osapi. The controller makes the key at its first start.
   secrets:
     vaults:
       - name: default
