@@ -52,6 +52,13 @@ controller:
     enabled: true
     notifier: log
     renotify_interval: 5m
+  # The vault of the secrets. The hub role makes its key before the controller
+  # starts.
+  secrets:
+    vaults:
+      - name: default
+        type: nats
+        key_file: {{ hub_state }}/secrets/vault-default.key
 
 nats:
   server:
