@@ -136,7 +136,7 @@
       {{ hub_binary is changed or hub_config is changed or hub_creds is changed
          or hub_resolver is changed or (hub_restart | default(false) | bool) }}
   loop:
-    - { name: nats, command: [nats, server, start] }
+    - { name: nats, command: [nats, start] }
     - { name: controller, command: [controller, start] }
   loop_control:
     label: "{{ item.name }}"
