@@ -62,6 +62,25 @@
       no_log: true
       notify: Restart the agent
 
+    # The image of a VM that upgrades in place is from before the agent allowed
+    # command exec. The integration suite runs its command examples on each VM.
+    - name: Read the config of the agent again
+      ansible.builtin.slurp:
+        src: /etc/osapi/osapi.yaml
+      register: upgrade_config_command
+      no_log: true
+
+    - name: Allow command exec in the config of the agent
+      when: "'\n  command:\n    enabled: true' not in (upgrade_config_command.content | b64decode)"
+      ansible.builtin.blockinfile:
+        path: /etc/osapi/osapi.yaml
+        insertafter: '^agent:$'
+        marker: "  # {mark} osapi-lab: command exec"
+        block: |2
+            command:
+              enabled: true
+      notify: Restart the agent
+
     # copy writes a temporary file and renames it over the target, so the agent
     # that runs keeps its own inode until the restart.
     - name: Copy the linux build

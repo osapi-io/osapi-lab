@@ -39,6 +39,10 @@ agent:
     enabled: true
   privilege_escalation:
     enabled: false
+  # osapi's integration suite runs its command examples against the lab, as
+  # CI's agent allows them. The lab's VMs are test hosts.
+  command:
+    enabled: true
 
 # The agent binds to buckets the NATS server created; these names have no
 # default, so they are repeated from the hub role's template.
