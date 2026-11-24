@@ -35,8 +35,6 @@ agent:
     enabled: true
     host: 0.0.0.0
     port: 9091
-  pki:
-    enabled: true
   privilege_escalation:
     enabled: false
   # osapi's integration suite runs its command examples against the lab, as
