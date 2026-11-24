@@ -57,22 +57,6 @@
     mode: "0600"
   register: hub_config
 
-# The controller does not start without the key of each vault of its config.
-- name: Make the key of the default vault
-  ansible.builtin.command:
-    argv:
-      - "{{ hub_state }}/bin/osapi-darwin-arm64"
-      - -f
-      - "{{ hub_state }}/config/hub.yaml"
-      - controller
-      - vault
-      - key
-      - create
-      - --name
-      - default
-  args:
-    creates: "{{ hub_state }}/secrets/vault-default.key"
-
 # The key that encrypts the JetStream store. creates keeps the first key: a
 # new key in its place makes each stream unreadable. The server encrypts the
 # plain store of an earlier deploy as it loads it.
