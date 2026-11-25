@@ -132,4 +132,4 @@ ssh vm:
 # Run this machine as one of the lab's agents, in the foreground
 [group('lab')]
 agent:
-    .lab/bin/osapi -f .lab/config/remote.yaml agent start
+    .lab/bin/osapi -f .lab/config/agent-remote.yaml agent start

@@ -7,8 +7,8 @@
 
 - name: Render the client config
   ansible.builtin.template:
-    src: client.yaml.j2
-    dest: "{{ lab_state }}/config/client.yaml"
+    src: cli.yaml.j2
+    dest: "{{ lab_state }}/config/cli.yaml"
     mode: "0600"
 
 # The nats CLI in this directory, through .envrc: its own user in osapi's
@@ -60,7 +60,7 @@
 - name: Render the remote agent config
   ansible.builtin.template:
     src: agent.yaml.j2
-    dest: "{{ lab_state }}/config/remote.yaml"
+    dest: "{{ lab_state }}/config/agent-remote.yaml"
     mode: "0600"
   vars:
     agent_node: ""

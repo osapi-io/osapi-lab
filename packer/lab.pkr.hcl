@@ -77,11 +77,6 @@ variable "tracing_port" {
   default     = 4317
 }
 
-variable "dummy_key" {
-  type        = string
-  description = "A throwaway signing key, which the config must carry and the agent does not use."
-}
-
 locals {
   base_images = {
     ubuntu = "ghcr.io/cirruslabs/ubuntu:24.04"
@@ -134,7 +129,6 @@ locals {
     nats_port    = var.nats_port
     tracing_port = var.tracing_port
     creds_file   = "/etc/osapi/nats.creds"
-    dummy_key    = var.dummy_key
   })
 }
 

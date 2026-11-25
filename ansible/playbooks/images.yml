@@ -147,7 +147,6 @@
           revision: "{{ lab_build_revision }}"
           osapi_binary: "{{ lab_hub_state_abs }}/bin/osapi-linux-arm64"
           ssh_pubkey: "{{ lookup('ansible.builtin.file', lab_ssh_key ~ '.pub') }}"
-          dummy_key: "{{ lab_agent_dummy_key }}"
           nats_port: "{{ lab_nats_port }}"
           tracing_port: "{{ lab_tracing_otlp_port }}"
         # The credential goes in the environment, so it is in no argument

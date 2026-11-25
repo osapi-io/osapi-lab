@@ -21,7 +21,7 @@
   tasks:
     - name: List the running agents
       ansible.builtin.command:
-        argv: ["{{ lab_state }}/bin/osapi", -f, "{{ lab_state }}/config/client.yaml", client, agent, list, --json]
+        argv: ["{{ lab_state }}/bin/osapi", -f, "{{ lab_state }}/config/cli.yaml", client, agent, list, --json]
       register: consumers_agents
       changed_when: false
       check_mode: false
