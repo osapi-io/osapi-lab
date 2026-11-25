@@ -81,6 +81,33 @@
               enabled: true
       notify: Restart the agent
 
+    # The hub serves NATS and OTLP over TLS (osapi-io/osapi#1385, #1396). The
+    # image of a VM that upgrades in place connects in plain text, so the
+    # upgrade gives its NATS connection and its exporter a tls block. The VM
+    # dials the hub by its address on tart's network; the hub's certificate
+    # names its Tailscale name.
+    - name: Connect to NATS with TLS
+      ansible.builtin.blockinfile:
+        path: /etc/osapi/osapi.yaml
+        insertafter: '^      creds_file: '
+        marker: "    # {mark} osapi-lab: nats tls"
+        block: |2
+              tls:
+                enabled: true
+                server_name: {{ lab_hub_addr }}
+      notify: Restart the agent
+
+    - name: Send traces with TLS
+      ansible.builtin.blockinfile:
+        path: /etc/osapi/osapi.yaml
+        insertafter: '^    otlp_endpoint: '
+        marker: "    # {mark} osapi-lab: tracing tls"
+        block: |2
+              tls:
+                enabled: true
+                server_name: {{ lab_hub_addr }}
+      notify: Restart the agent
+
     # copy writes a temporary file and renames it over the target, so the agent
     # that runs keeps its own inode until the restart.
     # The image of a VM that upgrades in place can have unattended-upgrades,
