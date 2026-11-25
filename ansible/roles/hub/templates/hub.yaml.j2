@@ -1,7 +1,6 @@
 # {{ ansible_managed }}
-# The hub: osapi's embedded NATS server and the controller. Bucket and stream
-# settings follow configs/osapi.yaml in the osapi repository; most of them have
-# no default.
+# The hub: osapi's embedded NATS server and the controller. Each key that is
+# not here has its default; osapi config default get prints them all.
 
 controller:
   client:
@@ -9,54 +8,40 @@ controller:
     url: {{ lab_controller_url }}
     security:
       bearer_token: {{ lab_token }}
+  # Where a person opens each part; health shows it beside the bind address.
   ui:
-    enabled: true
-    # Where a person opens each part; health shows it beside the bind address.
     url: {{ lab_controller_url }}
   api:
-    port: 8080
     url: {{ lab_controller_url }}
     tls:
       enabled: true
       cert_file: {{ hub_state }}/tls/api.crt
       key_file: {{ hub_state }}/tls/api.key
-    job_timeout: 30s
     security:
+      # The lab's own keys, so that cli.yaml on this machine signs tokens that
+      # the controller accepts.
       signing_keys:
 {% for k in lab_signing_keys %}
         - id: {{ k.id }}
           key: {{ k.key }}
 {% endfor %}
-      cors:
-        allow_origins: []
   nats:
-    host: localhost
-    port: 4222
-    client_name: osapi-controller
-    namespace: osapi
+    port: {{ lab_nats_port }}
     # Its own user in osapi's NATS account; osapi nats setup uses it too.
     auth:
       type: creds
       creds_file: {{ hub_state }}/secrets/controller.creds
   # Metrics have no authentication, so they answer the hub only.
   metrics:
-    enabled: true
     host: 127.0.0.1
-    port: 9090
-  # PKI is always on: agents enroll with a key, and every job response is
-  # verified against it. auto_admit, because each push reclones the VMs and
-  # they ask to join afresh.
   pki:
     key_dir: {{ hub_state }}/pki
+    # Each push clones the VMs again, and they ask to join again.
     auto_admit: true
     # A VM that is cloned again is deleted from admission first (lab_vm). This
     # deletes one that went away some other way, such as by hand, when it has
     # not reported for a day.
     delete_after: 24h
-  notifications:
-    enabled: true
-    notifier: log
-    renotify_interval: 5m
   # The vault of the secrets, with its key in the hub's state, not in
   # /etc/osapi. The controller makes the key at its first start.
   secrets:
@@ -78,7 +63,6 @@ nats:
     # role makes it with osapi nats key create, one time.
     jetstream:
       key_file: {{ hub_state }}/secrets/jetstream.key
-    namespace: osapi
     auth:
       type: operator
       # The operator, the system account and each account's JWT, from nsc.
@@ -86,62 +70,12 @@ nats:
       # The server's own user, which its setup and heartbeat connect as.
       creds_file: {{ hub_state }}/secrets/nats.creds
     metrics:
-      enabled: true
       host: 127.0.0.1
-      port: 9092
-  stream:
-    name: JOBS
-    subjects: jobs.>
-    max_age: 24h
-    max_msgs: 10000
-    storage: file
-    replicas: 1
-    discard: old
   kv:
-    bucket: job-queue
-    response_bucket: job-responses
     # How long a job stays on the Jobs page and in job get. It matches the
     # JOBS stream's max_age. With 1h, every job older than an hour went at
     # once each time the hub connected (osapi-io/osapi#1096).
     ttl: 24h
-    max_bytes: 104857600
-    storage: file
-    replicas: 1
-  dlq:
-    max_age: 168h
-    max_msgs: 1000
-    storage: file
-    replicas: 1
-  audit:
-    stream: AUDIT
-    subject: audit
-    max_age: 720h
-    max_bytes: 52428800
-    storage: file
-    replicas: 1
-  registry:
-    bucket: agent-registry
-    ttl: 30s
-    storage: file
-    replicas: 1
-  facts:
-    bucket: agent-facts
-    ttl: 5m
-    storage: file
-    replicas: 1
-  state:
-    bucket: agent-state
-    storage: file
-    replicas: 1
-  objects:
-    bucket: file-objects
-    max_bytes: 10737418240
-    storage: file
-    replicas: 1
-  file_state:
-    bucket: file-state
-    storage: file
-    replicas: 1
 
 telemetry:
   tracing:

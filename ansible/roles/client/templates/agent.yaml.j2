@@ -1,59 +1,22 @@
 # {{ ansible_managed }}
 # A remote agent: one that runs on this machine, outside the lab VMs. Each lab
 # VM has its config baked into its image, from packer/agent.yaml.pkrtpl.hcl.
-#
-# osapi validates the whole file whatever the command, so an agent's config has
-# to carry controller.api.security.signing_keys,
-# controller.client.security.bearer_token and controller.nats.port even though
-# the agent uses none of them. These are throwaway values, never the hub's.
-
-controller:
-  client:
-    security:
-      bearer_token: unused-by-the-agent
-  api:
-    security:
-      signing_keys:
-        - id: unused
-          key: {{ lab_agent_dummy_key }}
-  nats:
-    port: 4222
+# Each key that is not here has its default.
 
 agent:
+{% if agent_node %}
   hostname: {{ agent_node }}
+{% endif %}
   labels:
     distro: {{ agent_distro }}
   nats:
     host: {{ agent_nats_host }}
-    port: 4222
-    client_name: osapi-agent
-    namespace: osapi
+    port: {{ lab_nats_port }}
     # Its own user in osapi's NATS account: adding a host is issuing it
     # credentials, with no change on the server.
     auth:
       type: creds
       creds_file: {{ agent_creds_file | default('/etc/osapi/nats.creds') }}
-  metrics:
-    enabled: true
-    host: 0.0.0.0
-    port: 9091
-  privilege_escalation:
-    enabled: false
-
-# The agent binds to buckets the NATS server created; these names have no
-# default, so they are repeated from the hub role's template.
-nats:
-  facts:
-    bucket: agent-facts
-  state:
-    bucket: agent-state
-  objects:
-    bucket: file-objects
-  file_state:
-    bucket: file-state
-  audit:
-    stream: AUDIT
-    subject: audit
 
 telemetry:
   tracing:

@@ -43,9 +43,8 @@ lab_api_port: 8080
 lab_secrets_dir: "{{ lab_state }}/secrets"
 lab_signing_key: "{{ lookup('ansible.builtin.file', lab_secrets_dir ~ '/signing_key') }}"
 lab_token: "{{ lookup('ansible.builtin.file', lab_secrets_dir ~ '/token') }}"
-lab_agent_dummy_key: "{{ lookup('ansible.builtin.file', lab_secrets_dir ~ '/agent_dummy_key') }}"
 
-# controller.api.security.signing_keys of the hub and of client.yaml. The first
+# controller.api.security.signing_keys of the hub and of cli.yaml. The first
 # key signs each token and puts its id in the token's kid; each key verifies the
 # tokens with its id. To change the key, put a new one first, and remove the old
 # one when its tokens expire.
