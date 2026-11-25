@@ -157,6 +157,13 @@
       loop: "{{ images_wanted }}"
       loop_control:
         label: "{{ item.name }}"
+    # bump.yml reads it: a bump copies a build into the VMs, so it must not
+    # run when the packer directory, which the images are baked from, changed.
+    - name: Record the packer directory that the images are baked from
+      ansible.builtin.copy:
+        dest: "{{ lab_hub_state_abs }}/images/packer.sum"
+        content: "{{ images_packer_sum.stdout }}"
+        mode: "0644"
     - name: Record the fingerprint each image was baked from
       ansible.builtin.copy:
         dest: "{{ lab_hub_state_abs }}/images/img-{{ item.name }}-{{ lab_build_tag }}.fingerprint"
