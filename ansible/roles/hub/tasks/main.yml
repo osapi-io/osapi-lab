@@ -50,6 +50,28 @@
     mode: "0600"
   register: hub_resolver
 
+# The controller serves HTTPS with the hub's Tailscale certificate, a Let's
+# Encrypt certificate for lab_hub_addr that each browser and each client
+# trusts (osapi-io/osapi#1381). tailscale cert renews it when it is near its
+# end, at a deploy.
+- name: Make the directory of the API's certificate
+  ansible.builtin.file:
+    path: "{{ hub_state }}/tls"
+    state: directory
+    mode: "0700"
+
+- name: Get the hub's Tailscale certificate
+  ansible.builtin.command:
+    argv:
+      - "{{ lab_tailscale_cli }}"
+      - cert
+      - --cert-file
+      - "{{ hub_state }}/tls/api.crt"
+      - --key-file
+      - "{{ hub_state }}/tls/api.key"
+      - "{{ lab_hub_addr }}"
+  changed_when: false
+
 - name: Render the hub's config
   ansible.builtin.template:
     src: hub.yaml.j2

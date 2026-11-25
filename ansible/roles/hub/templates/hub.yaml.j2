@@ -5,7 +5,8 @@
 
 controller:
   client:
-    url: http://localhost:8080
+    # The certificate is for the hub's Tailscale name, not localhost.
+    url: {{ lab_controller_url }}
     security:
       bearer_token: {{ lab_token }}
   ui:
@@ -15,6 +16,10 @@ controller:
   api:
     port: 8080
     url: {{ lab_controller_url }}
+    tls:
+      enabled: true
+      cert_file: {{ hub_state }}/tls/api.crt
+      key_file: {{ hub_state }}/tls/api.key
     job_timeout: 30s
     security:
       signing_keys:

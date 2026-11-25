@@ -80,7 +80,7 @@ lab_tracing_ui_port: 16686
 # machine (lab_hub_addr, from the inventory); set any of them in the inventory
 # to show a different location. The metrics servers answer the hub only, so
 # they get none.
-lab_controller_url: http://{{ lab_hub_addr }}:8080/
+lab_controller_url: https://{{ lab_hub_addr }}:8080/
 lab_tracing_view_url: http://{{ lab_hub_addr }}:{{ lab_tracing_ui_port }}/
 lab_nats_url: nats://{{ lab_hub_addr }}:{{ lab_nats_port }}
 
@@ -112,3 +112,6 @@ lab_hub_path_dirs:
 lab_hub_path: >-
   {{ ((lab_hub_path_dirs + [ansible_facts.env.PATH]) | join(':'))
      if 'env' in ansible_facts else '/usr/bin:/bin:/usr/sbin:/sbin' }}
+
+# The Tailscale CLI on the hub, which issues the API's certificate.
+lab_tailscale_cli: /Applications/Tailscale.app/Contents/MacOS/Tailscale
