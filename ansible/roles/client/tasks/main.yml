@@ -45,7 +45,7 @@
   ansible.builtin.copy:
     dest: "{{ lab_state }}/config/nats.env"
     content: |
-      NATS_URL=nats://{{ lab_hub_addr }}:{{ lab_nats_port }}
+      NATS_URL=tls://{{ lab_hub_addr }}:{{ lab_nats_port }}
       NATS_CREDS={{ lab_nats_creds_dir }}/cli.creds
     mode: "0600"
 

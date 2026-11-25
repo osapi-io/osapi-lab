@@ -17,6 +17,8 @@ agent:
     auth:
       type: creds
       creds_file: {{ agent_creds_file | default('/etc/osapi/nats.creds') }}
+    tls:
+      enabled: true
 
 telemetry:
   tracing:
