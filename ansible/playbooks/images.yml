@@ -149,6 +149,7 @@
           ssh_pubkey: "{{ lookup('ansible.builtin.file', lab_ssh_key ~ '.pub') }}"
           nats_port: "{{ lab_nats_port }}"
           tracing_port: "{{ lab_tracing_otlp_port }}"
+          hub_name: "{{ lab_hub_addr }}"
         # The credential goes in the environment, so it is in no argument
         # list on the hub and no log of this run.
         packer_env:

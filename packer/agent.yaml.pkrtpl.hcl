@@ -23,3 +23,8 @@ telemetry:
     enabled: true
     exporter: otlp
     otlp_endpoint: ${nats_host}:${tracing_port}
+    # The VM dials the hub by its address on tart's network; the hub's
+    # certificate names its Tailscale name.
+    tls:
+      enabled: true
+      server_name: ${hub_name}

@@ -82,5 +82,10 @@ telemetry:
     enabled: true
     exporter: otlp
     otlp_endpoint: 127.0.0.1:{{ lab_tracing_otlp_port }}
+    # Jaeger serves the hub's Tailscale certificate, which names the hub, not
+    # 127.0.0.1. The trace reader uses the same block.
+    tls:
+      enabled: true
+      server_name: {{ lab_hub_addr }}
     # The Jaeger UI, which osapi links to and does not run.
     url: {{ lab_tracing_view_url }}
