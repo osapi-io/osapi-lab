@@ -66,6 +66,11 @@ list:
 rebuild:
     just ansible-run rebuild
 
+# Copy a new osapi build to the hub and the running VMs, with no images (a change to the binary only)
+[group('lab')]
+bump:
+    just ansible-run bump
+
 # Bake the images of what changed and replace those VMs (needs passwordless sudo on the hub)
 [group('lab')]
 deploy:
