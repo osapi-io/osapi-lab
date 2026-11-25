@@ -80,8 +80,8 @@ lab_tracing_ui_port: 16686
 # to show a different location. The metrics servers answer the hub only, so
 # they get none.
 lab_controller_url: https://{{ lab_hub_addr }}:8080/
-lab_tracing_view_url: http://{{ lab_hub_addr }}:{{ lab_tracing_ui_port }}/
-lab_nats_url: nats://{{ lab_hub_addr }}:{{ lab_nats_port }}
+lab_tracing_view_url: https://{{ lab_hub_addr }}:{{ lab_tracing_ui_port }}/
+lab_nats_url: tls://{{ lab_hub_addr }}:{{ lab_nats_port }}
 
 # The hub, as the plays that run elsewhere refer to it.
 lab_hub: "{{ groups['hub'][0] }}"

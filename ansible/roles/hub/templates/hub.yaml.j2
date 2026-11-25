@@ -31,6 +31,10 @@ controller:
     auth:
       type: creds
       creds_file: {{ hub_state }}/secrets/controller.creds
+    # The server's certificate names the hub's Tailscale name, not localhost.
+    tls:
+      enabled: true
+      server_name: {{ lab_hub_addr }}
   # Metrics have no authentication, so they answer the hub only.
   metrics:
     host: 127.0.0.1
@@ -59,6 +63,11 @@ nats:
     port: {{ lab_nats_port }}
     url: {{ lab_nats_url }}
     store_dir: {{ hub_state }}/jetstream
+    # TLS with the hub's Tailscale certificate, as the API serves.
+    tls:
+      enabled: true
+      cert_file: {{ hub_state }}/tls/api.crt
+      key_file: {{ hub_state }}/tls/api.key
     # Each stream and bucket in store_dir is encrypted with this key. The hub
     # role makes it with osapi nats key create, one time.
     jetstream:
@@ -82,5 +91,10 @@ telemetry:
     enabled: true
     exporter: otlp
     otlp_endpoint: 127.0.0.1:{{ lab_tracing_otlp_port }}
+    # Jaeger serves the hub's Tailscale certificate, which names the hub, not
+    # 127.0.0.1. The trace reader uses the same block.
+    tls:
+      enabled: true
+      server_name: {{ lab_hub_addr }}
     # The Jaeger UI, which osapi links to and does not run.
     url: {{ lab_tracing_view_url }}

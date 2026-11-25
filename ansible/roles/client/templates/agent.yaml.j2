@@ -17,9 +17,13 @@ agent:
     auth:
       type: creds
       creds_file: {{ agent_creds_file | default('/etc/osapi/nats.creds') }}
+    tls:
+      enabled: true
 
 telemetry:
   tracing:
     enabled: true
     exporter: otlp
     otlp_endpoint: {{ agent_nats_host }}:{{ lab_tracing_otlp_port }}
+    tls:
+      enabled: true

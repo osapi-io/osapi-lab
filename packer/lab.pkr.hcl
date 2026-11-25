@@ -71,6 +71,11 @@ variable "nats_port" {
   default     = 4222
 }
 
+variable "hub_name" {
+  type        = string
+  description = "The name in the hub's certificate, which each VM checks when it sends traces."
+}
+
 variable "tracing_port" {
   type        = number
   description = "The OTLP port of the hub's tracing."
@@ -128,6 +133,7 @@ locals {
     nats_host    = var.nats_host
     nats_port    = var.nats_port
     tracing_port = var.tracing_port
+    hub_name     = var.hub_name
     creds_file   = "/etc/osapi/nats.creds"
   })
 }
