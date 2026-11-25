@@ -85,6 +85,48 @@
   changed_when: false
   check_mode: false
 
+# A run that finds the lab held waits for it, as `just lab-session` waits,
+# rather than failing at once: the lab is busy, not broken. It fails only
+# when the holder keeps the lock for lab_lock_wait minutes.
+- name: Say which run holds the lock
+  when:
+    - lock_other | bool
+    - lock_other_state.stdout != 'gone'
+    - not (lab_lock_break | default(false) | bool)
+  ansible.builtin.debug:
+    msg: >-
+      The lab is held by {{ lock_current.stdout_lines | join('; ') }}. Waiting up to
+      {{ lab_lock_wait | default(30) }} minutes for it to finish.
+
+# One shell loop, not an until loop: Ansible prints each try of an until loop
+# as FAILED - RETRYING, which reads as an error while the lab is only busy.
+- name: Wait for the lock
+  when:
+    - lock_other | bool
+    - lock_other_state.stdout != 'gone'
+    - not (lab_lock_break | default(false) | bool)
+  ansible.builtin.shell: |
+    set -u
+    end=$(( $(date +%s) + {{ lab_lock_wait | default(30) | int }} * 60 ))
+    while [ "$(date +%s)" -lt "$end" ]; do
+      [ -f {{ lock_dir }}/holder ] || break
+      [ "$(head -1 {{ lock_dir }}/holder)" = "{{ lock_holder }}" ] && break
+      sleep 5
+    done
+    cat {{ lock_dir }}/holder 2>/dev/null || exit 3
+  args:
+    executable: /bin/bash
+  register: lock_waited
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Read the lock after the wait
+  when: lock_waited is defined and lock_waited is not skipped
+  ansible.builtin.set_fact:
+    lock_other: "{{ lock_waited.rc == 0 and (lock_waited.stdout_lines | first | default('')) != lock_holder }}"
+    lock_current: "{{ lock_waited }}"
+
 - name: Refuse while another run holds the lock
   when:
     - lock_other | bool
@@ -92,10 +134,10 @@
     - not (lab_lock_break | default(false) | bool)
   ansible.builtin.fail:
     msg: >-
-      Another lab run holds the lock ({{ lock_current.stdout_lines | join('; ') }}).
-      Two runs at once delete each other's images. Wait for it to finish, or
-      for the session to run `just unlock`. If it is gone, run again with
-      -e lab_lock_break=true.
+      Another lab run still holds the lock after {{ lab_lock_wait | default(30) }}
+      minutes ({{ lock_current.stdout_lines | join('; ') }}). Two runs at once
+      delete each other's images. Wait for it, or for the session to run
+      `just unlock`. If it is gone, run again with -e lab_lock_break=true.
 
 - name: Break the lock of a run that is gone
   when: lock_other | bool
