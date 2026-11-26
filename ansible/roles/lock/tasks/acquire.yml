@@ -173,8 +173,40 @@
         path: "{{ lab_hub_state_abs }}"
         state: directory
         mode: "0700"
+    # Two runs can both find the lab free and reach mkdir in the same
+    # moment (osapi-io/osapi-lab#89). mkdir is the one atomic step: the run
+    # whose mkdir fails waits for the other run to give the lock back, then
+    # takes it, as a run that found the lock held waits. A directory that
+    # keeps no holder for a minute is from a run that died, and is broken.
     - name: Make the lock
-      ansible.builtin.command: mkdir {{ lock_dir | quote }}
+      ansible.builtin.shell: |
+        set -u
+        end=$(( $(date +%s) + {{ lab_lock_wait | default(30) | int }} * 60 ))
+        waited=0
+        bare=0
+        until mkdir {{ lock_dir | quote }} 2>/dev/null; do
+          if [ "$(date +%s)" -ge "$end" ]; then
+            echo "another lab run still holds the lock after {{ lab_lock_wait | default(30) }} minutes" >&2
+            exit 1
+          fi
+          if [ -f {{ (lock_dir ~ '/holder') | quote }} ]; then
+            bare=0
+          else
+            bare=$(( bare + 1 ))
+            if [ "$bare" -ge 12 ]; then
+              rm -rf {{ lock_dir | quote }}
+              bare=0
+              continue
+            fi
+          fi
+          waited=1
+          sleep 5
+        done
+        [ "$waited" = 1 ] && echo waited
+        exit 0
+      args:
+        executable: /bin/bash
+      register: lock_made
       changed_when: true
     - name: Say which run holds the lock
       ansible.builtin.copy:
