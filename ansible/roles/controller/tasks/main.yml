@@ -28,3 +28,6 @@
   delay: 2
   changed_when: false
   check_mode: false
+
+- name: Keep the signing keys in the vault
+  ansible.builtin.include_tasks: vault.yml

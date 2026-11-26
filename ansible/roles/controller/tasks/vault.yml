@@ -1,0 +1,68 @@
+---
+# Keeps the lab's signing keys in the controller's vault, as a person would
+# with osapi client secret update, and the config refers to them there
+# (osapi-io/osapi-lab#54). The controller resolves the references at its
+# start. The first run starts it with the keys themselves, writes them, and
+# then starts it again on the references. A NATS password and a vault key
+# cannot be references, because osapi needs them before it reads a vault.
+
+- name: Read each signing key in the vault
+  ansible.builtin.command:
+    argv: >-
+      {{ lab_hub_cli + ['client', 'secret', 'reveal', '--vault', lab_vault,
+                        '--key', lab_vault_signing_key_prefix ~ item.id] }}
+  loop: "{{ lab_signing_keys }}"
+  loop_control:
+    label: "{{ item.id }}"
+  register: controller_vault_keys
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Write each signing key that the vault does not hold
+  ansible.builtin.command:
+    argv: >-
+      {{ lab_hub_cli + ['client', 'secret', 'update', '--vault', lab_vault,
+                        '--key', lab_vault_signing_key_prefix ~ item.item.id, '--value', '-'] }}
+    stdin: "{{ item.item.key }}"
+  loop: "{{ controller_vault_keys.results }}"
+  when: item.rc != 0 or (item.stdout | trim) != item.item.key
+  changed_when: true
+  no_log: true
+
+- name: Record that the vault holds the signing keys
+  ansible.builtin.copy:
+    dest: "{{ lab_hub_state_abs }}/secrets/signing-keys.in-vault"
+    content: "{{ lab_vault }}\n"
+    mode: "0600"
+
+# hub_host rendered the keys themselves when the vault did not hold them yet.
+- name: Refer to the signing keys in the config
+  when: not (hub_host_in_vault.stat.exists | default(false))
+  block:
+    - name: Render the hub's config with the references
+      ansible.builtin.include_role:
+        name: hub_host
+        tasks_from: config
+      vars:
+        hub_host_signing_in_vault: true
+
+    - name: Start the controller again on the references
+      ansible.builtin.include_role:
+        name: launchd
+      vars:
+        launchd_label: io.osapi.lab.controller
+        launchd_program_arguments: "{{ lab_hub_cli + ['controller', 'start'] }}"
+        launchd_working_directory: "{{ lab_hub_state_abs }}"
+        launchd_log: "{{ lab_hub_state_abs }}/log/controller.log"
+        launchd_restart: true
+
+    - name: Wait for the controller to answer on the references
+      ansible.builtin.command:
+        argv: "{{ lab_hub_cli + ['client', 'health', 'liveness'] }}"
+      register: controller_live_again
+      until: controller_live_again.rc == 0
+      retries: 30
+      delay: 2
+      changed_when: false

@@ -87,6 +87,10 @@ lab_token: "{{ lookup('ansible.builtin.file', lab_secrets_dir ~ '/token') }}"
 lab_signing_keys:
   - id: lab
     key: "{{ lab_signing_key }}"
+# The vault that the hub keeps the signing keys in, as secret://<vault>/<key>,
+# and the prefix of each key's name in it: jwt-signing-key-lab.
+lab_vault: default
+lab_vault_signing_key_prefix: jwt-signing-key-
 
 # NATS runs in operator (decentralized JWT) mode. The hub makes its operator,
 # its accounts and a credentials file for each osapi role with `osapi nats
