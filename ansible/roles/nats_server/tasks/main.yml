@@ -1,14 +1,13 @@
 ---
 # osapi's NATS server on the hub, in operator mode, under launchd. It restarts
 # when its binary, the config, the certificate, the NATS auth or the JetStream
-# key changed, or in a restart. hub_host runs first.
+# key is not the one it started on, or in a restart. hub_host runs first.
 
 - name: Make the JetStream encryption key
   ansible.builtin.command:
     argv: "{{ lab_hub_cli + ['nats', 'key', 'create'] }}"
   args:
     creates: "{{ lab_hub_state_abs }}/secrets/jetstream.key"
-  register: nats_server_jetstream_key
 
 # NATS in operator mode does not load the global account, and stops at start
 # when JetStream has state for it from a run before operator mode.
@@ -25,9 +24,6 @@
     launchd_program_arguments: "{{ lab_hub_cli + ['nats', 'start'] }}"
     launchd_working_directory: "{{ lab_hub_state_abs }}"
     launchd_log: "{{ lab_hub_state_abs }}/log/nats.log"
-    launchd_restart: >-
-      {{ lab_mode == 'restart'
-         or hub_host_binary_changed | default(false) or hub_host_config_changed | default(false)
-         or hub_tls_changed | default(false)
-         or hub_host_nats_auth_changed | default(false)
-         or nats_server_jetstream_key is changed }}
+    launchd_restart: "{{ lab_mode == 'restart' }}"
+    launchd_inputs: "{{ lab_hub_inputs_common + [lab_hub_state_abs ~ '/secrets/jetstream.key'] }}"
+    launchd_inputs_record: "{{ lab_hub_state_abs }}/run/nats.inputs"

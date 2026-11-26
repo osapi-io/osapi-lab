@@ -1,7 +1,7 @@
 ---
 # osapi's controller on the hub, which serves the API and the UI, under
 # launchd. It restarts when its binary, the config, the certificate or the
-# NATS auth changed, or in a restart. A deploy of the UI is a deploy of the
+# NATS auth is not the one it started on, or in a restart. A deploy of the UI is a deploy of the
 # controller, because osapi embeds the UI. hub_host runs first.
 
 - name: Run the controller under launchd
@@ -12,10 +12,9 @@
     launchd_program_arguments: "{{ lab_hub_cli + ['controller', 'start'] }}"
     launchd_working_directory: "{{ lab_hub_state_abs }}"
     launchd_log: "{{ lab_hub_state_abs }}/log/controller.log"
-    launchd_restart: >-
-      {{ lab_mode == 'restart'
-         or hub_host_binary_changed | default(false) or hub_host_config_changed | default(false)
-         or hub_tls_changed | default(false) or hub_host_nats_auth_changed | default(false) }}
+    launchd_restart: "{{ lab_mode == 'restart' }}"
+    launchd_inputs: "{{ lab_hub_inputs_common }}"
+    launchd_inputs_record: "{{ lab_hub_state_abs }}/run/controller.inputs"
 
 # The controller answers once it reads its config and binds its port. A run
 # that goes on to the agents asks it about them.

@@ -1,22 +1,34 @@
 ---
-# Refuses a bump when packer/ changed since the images were baked: a bump
-# copies only the osapi binary, so a change to a VM's config or packages needs a
-# deploy. images record the checksum in images/packer.sum on the hub.
+# Refuses a bump when packer/ changed since the image of a VM of the bump was
+# baked: a bump copies only the osapi binary, so a change to a VM's config or
+# packages needs a deploy. Each image records the checksum in
+# images/<vm>.packer.sum on the hub. A VM that upgrades in place is not
+# checked: it is cloned from its image one time, and only `just rebuild`
+# bakes it again.
 
 - name: Fingerprint the packer directory
   ansible.builtin.include_tasks: fingerprint.yml
 
-- name: Read the packer directory that the images are baked from
-  ansible.builtin.command: cat {{ lab_hub_state_abs }}/images/packer.sum
+- name: Read the packer directory that each VM's image is baked from
+  ansible.builtin.command: cat {{ lab_hub_state_abs }}/images/{{ item.name }}.packer.sum
+  loop: "{{ lab_update_vms | rejectattr('name', 'in', lab_in_place) | list }}"
+  loop_control:
+    label: "{{ item.name }}"
   register: lab_images_baked_sum
   changed_when: false
   failed_when: false
   check_mode: false
 
 - name: Refuse a bump when the packer directory changed
+  vars:
+    lab_images_behind: >-
+      {{ lab_images_baked_sum.results
+         | rejectattr('stdout', 'equalto', lab_images_packer_sum.stdout)
+         | map(attribute='item.name') | list }}
   ansible.builtin.assert:
-    that: lab_images_baked_sum.rc == 0 and lab_images_baked_sum.stdout == lab_images_packer_sum.stdout
+    that: lab_images_behind | length == 0
     fail_msg: >-
-      packer/ changed since the images were baked, or the hub has no record of
-      it. A bump copies only the osapi binary. Run `just deploy`.
+      packer/ changed since the image of {{ lab_images_behind | join(', ') }} was
+      baked, or the hub has no record of it. A bump copies only the osapi binary.
+      Run `just deploy {{ lab_images_behind | join(' ') }}`.
     quiet: true

@@ -12,20 +12,40 @@
     src: "{{ lab_state }}/bin/osapi-linux-arm64"
     dest: /usr/local/bin/osapi
     mode: "0755"
-  register: lab_agent_binary
-  notify:
-    - Record the build that the VM runs
-    - Restart the agent
+
+# /etc/osapi-lab/image keeps the image that the VM was cloned from; revision is
+# the build that it runs now, which `just list` shows.
+- name: Record the build that the VM runs
+  when: lab_agent_update | bool
+  ansible.builtin.lineinfile:
+    path: /etc/osapi-lab/image
+    regexp: ^revision=
+    line: revision={{ lab_build_revision }}
+
+# The copy renamed a new file over the binary, so an agent that started before
+# it runs a file that is gone. This finds it also when a run broke after the
+# copy and before the restart: the next run restarts the agent.
+- name: Check whether the agent runs a binary that was replaced
+  ansible.builtin.shell: |
+    set -euo pipefail
+    pid=$(systemctl show -p MainPID --value osapi-agent)
+    [ "${pid:-0}" -gt 0 ] || exit 0
+    case "$(readlink "/proc/$pid/exe")" in *" (deleted)") echo replaced ;; esac
+  args:
+    executable: /bin/bash
+  register: lab_agent_exe
+  changed_when: false
+  check_mode: false
 
 - name: Restart the agent
-  when: lab_agent_restart | bool
+  when: lab_agent_restart | bool or 'replaced' in lab_agent_exe.stdout
   ansible.builtin.systemd_service:
     name: osapi-agent
     state: restarted
-  changed_when: true
+    daemon_reload: true
   register: lab_agent_restarted
 
 # fleet_ready waits for a new process of each agent that started again.
 - name: Keep whether the agent starts again
   ansible.builtin.set_fact:
-    lab_agent_started_again: "{{ lab_agent_binary is changed or lab_agent_restarted is changed }}"
+    lab_agent_started_again: "{{ lab_agent_restarted is changed }}"

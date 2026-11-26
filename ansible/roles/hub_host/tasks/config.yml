@@ -18,4 +18,3 @@
     hub_nats: "{{ lab_hub_nats_dir }}"
     hub_nats_account: "{{ hub_host_nats_account.stdout | trim }}"
     hub_signing_in_vault: "{{ hub_host_signing_in_vault }}"
-  register: hub_host_config
