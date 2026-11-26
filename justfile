@@ -113,12 +113,34 @@ _lab mode *targets:
     if [ ${#tags[@]} -gt 0 ]; then args+=(--tags "$(IFS=,; echo "${tags[*]}")"); fi
     just ansible-run lab "${args[@]}" "${extra[@]}"
 
-# Run osapi's integration suite against the lab, with the write tests that CI runs; run it in a lab-session, after bump
+# Run osapi's integration suite against each VM of the lab, or the VMs named, such as `just int ubuntu-1 fedora-1`, with the write tests that CI runs; run it in a lab-session. LAB_OSAPI names the osapi checkout (../osapi)
 [group('lab')]
-int target="ubuntu-1" osapi=(justfile_directory() / ".." / "osapi"):
-    cd {{ osapi }} && OSAPI_INTEGRATION_OSAPIFILE={{ justfile_directory() }}/.lab/config/cli.yaml \
-      OSAPI_INTEGRATION_TARGET={{ target }} OSAPI_INTEGRATION_WRITES=1 OSAPI_INTEGRATION_WRITE_BEHAVIORS=1 \
-      mise exec -- just go-unit-int
+int *vms:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    osapi="${LAB_OSAPI:-{{ justfile_directory() }}/../osapi}"
+    vms="{{ vms }}"
+    if [ -z "$vms" ]; then
+        vms=$(awk '/^lab_vms:/ {on=1; next} on && /^[^ #-]/ {on=0} on && /- name:/ {print $3}' ansible/group_vars/all.yml)
+    fi
+    mkdir -p .lab/int
+    failed=()
+    for vm in $vms; do
+        echo "== $vm"
+        if (cd "$osapi" && OSAPI_INTEGRATION_OSAPIFILE={{ justfile_directory() }}/.lab/config/cli.yaml \
+            OSAPI_INTEGRATION_TARGET="$vm" OSAPI_INTEGRATION_WRITES=1 OSAPI_INTEGRATION_WRITE_BEHAVIORS=1 \
+            mise exec -- just go-unit-int) > ".lab/int/$vm.log" 2>&1; then
+            echo "   ok    .lab/int/$vm.log"
+        else
+            echo "   FAIL  .lab/int/$vm.log"
+            grep -E '^\s+--- FAIL' ".lab/int/$vm.log" | head -10
+            failed+=("$vm")
+        fi
+    done
+    if [ ${#failed[@]} -gt 0 ]; then
+        echo "failed: ${failed[*]}"
+        exit 1
+    fi
 
 # Remove the lab from the hub; keeps the images and .lab
 [group('lab')]

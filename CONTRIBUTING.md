@@ -100,6 +100,7 @@ it.
 | Bake each image again and replace each VM       | `just rebuild`                     | everything   |
 | Restart the processes, with no build            | `just restart`                     | hub and VMs  |
 | Stop processes and VMs, and start them again    | `just stop`, `just start`          | hub and VMs  |
+| Run osapi's integration suite on each VM        | `just int`, `just int ubuntu-1`    | the VMs      |
 | Run this machine as an agent too                | `just agent`                       | this machine |
 | Remove the lab from the hub                     | `just teardown`                    | the hub      |
 
