@@ -1,0 +1,3 @@
+---
+# The prefix of each launchd label of the lab on the hub.
+hub_host_label_prefix: io.osapi.lab

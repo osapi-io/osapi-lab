@@ -61,15 +61,47 @@ ready:
 list:
     just ansible-run list
 
-# Bake every image again and replace every VM, also when nothing changed (needs passwordless sudo on the hub)
+# Bake each image that changed and replace its VM, and update the hub; targets narrow it, such as `just deploy ui` or `just deploy debian-lts`
 [group('lab')]
-rebuild:
-    just ansible-run rebuild
+deploy *targets:
+    just _lab deploy {{ targets }}
 
-# Copy a new osapi build to the hub and the running VMs, with no images (a change to the binary only)
+# Put a new osapi build into the running processes, with no images, such as `just bump` or `just bump controller ubuntu-1`
 [group('lab')]
-bump:
-    just ansible-run bump
+bump *targets:
+    just _lab bump {{ targets }}
+
+# Bake each image again and replace each VM, also when nothing changed, such as `just rebuild debian-lts`
+[group('lab')]
+rebuild *targets:
+    just _lab rebuild {{ targets }}
+
+# Restart processes with no build and no copy, such as `just restart nats` or `just restart fedora-1`
+[group('lab')]
+restart *targets:
+    just _lab restart {{ targets }}
+
+# Run playbooks/lab.yml in a mode on targets: nats, controller, ui (the
+# controller), jaeger, hub (the three), vms, client, or a VM's name. With no
+# target, each component and each VM. -e and -- arguments go to Ansible.
+[private]
+_lab mode *targets:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tags=() vms=() extra=()
+    for t in {{ targets }}; do
+        case "$t" in
+            nats | controller | jaeger | vms | client) tags+=("$t") ;;
+            ui) tags+=(controller) ;;
+            hub) tags+=(nats controller jaeger) ;;
+            -*) extra+=("$t") ;;
+            *) vms+=("$t") tags+=(vms) ;;
+        esac
+    done
+    args=(-e lab_mode={{ mode }})
+    if [ ${#vms[@]} -gt 0 ]; then args+=(-e "lab_only=$(IFS=,; echo "${vms[*]}")"); fi
+    if [ ${#tags[@]} -gt 0 ]; then args+=(--tags "$(IFS=,; echo "${tags[*]}")"); fi
+    just ansible-run lab "${args[@]}" "${extra[@]}"
 
 # Run osapi's integration suite against the lab, with the write tests that CI runs; run it in a lab-session, after bump
 [group('lab')]
@@ -78,37 +110,21 @@ int target="ubuntu-1" osapi=(justfile_directory() / ".." / "osapi"):
       OSAPI_INTEGRATION_TARGET={{ target }} OSAPI_INTEGRATION_WRITES=1 OSAPI_INTEGRATION_WRITE_BEHAVIORS=1 \
       mise exec -- just go-unit-int
 
-# Bake the images of what changed and replace those VMs (needs passwordless sudo on the hub)
-[group('lab')]
-deploy:
-    just ansible-run deploy
-
-# Create the whole lab: secrets, the hub, the images and the VMs; safe to run again
-[group('lab')]
-site:
-    just ansible-run site
-
 # Remove the lab from the hub; keeps the images and .lab
 [group('lab')]
 teardown:
     just ansible-run teardown
 
-# Build osapi from your checkout into .lab/bin
+# Build osapi from your checkout into .lab/bin, for darwin and linux
 [group('lab')]
 build:
     just ansible-run build
 
-# Bake the images of what changed, and leave the running VMs as they are
+# Show the hub's recent logs: nats and controller, or the ones named, such as `just logs jaeger vm-ubuntu-1`
 [group('lab')]
-images:
-    just ansible-run images
+logs *names:
+    just ansible-run logs {{ if names == "" { "" } else { "-e lab_logs=" + replace(names, " ", ",") } }}
 
-# Show the hub's recent NATS and controller logs
-[group('lab')]
-logs:
-    just ansible-run logs
-
-# Open a shell on a VM, such as `just ssh ubuntu-1`
 # Hold the lab for a session, such as `just lock osapi-1139`: wait while another run or session holds it. Each recipe that runs with LAB_SESSION=<name> keeps it, and only `just unlock <name>` gives it back
 [group('lab')]
 lock name:

@@ -18,7 +18,7 @@
   vars:
     teardown_labels: >-
       {{ (lab_vms | map(attribute='name') | map('regex_replace', '^', 'io.osapi.lab.vm.') | list)
-         + ['io.osapi.lab.controller', 'io.osapi.lab.nats'] }}
+         + ['io.osapi.lab.controller', 'io.osapi.lab.nats', 'io.osapi.lab.jaeger'] }}
     teardown_firewall_apps:
       - "{{ lab_hub_state_abs }}/bin/osapi-darwin-arm64"
       - "{{ lab_hub_state_abs }}/bin/jaeger"

@@ -1,0 +1,54 @@
+---
+# osapi's NATS server on the hub, in operator mode, under launchd. It restarts
+# when its binary, the config, the certificate, its credentials, the resolver
+# or the JetStream key changed, or in a restart. hub_host runs first.
+
+- name: Make the NATS user of the server
+  ansible.builtin.include_role:
+    name: secrets
+    tasks_from: user
+  vars:
+    secrets_nats_user: nats
+
+- name: Copy the server's NATS credentials
+  ansible.builtin.copy:
+    src: "{{ lab_nats_creds_dir }}/nats.creds"
+    dest: "{{ lab_hub_state_abs }}/secrets/nats.creds"
+    mode: "0600"
+  register: nats_server_creds
+
+- name: Copy the NATS resolver config
+  ansible.builtin.copy:
+    src: "{{ lab_nats_resolver }}"
+    dest: "{{ lab_hub_state_abs }}/config/resolver.conf"
+    mode: "0600"
+  register: nats_server_resolver
+
+- name: Make the JetStream encryption key
+  ansible.builtin.command:
+    argv: "{{ lab_hub_cli + ['nats', 'key', 'create'] }}"
+  args:
+    creates: "{{ lab_hub_state_abs }}/secrets/jetstream.key"
+  register: nats_server_jetstream_key
+
+# NATS in operator mode does not load the global account, and stops at start
+# when JetStream has state for it from a run before operator mode.
+- name: Remove the global account that NATS does not load
+  ansible.builtin.file:
+    path: "{{ lab_hub_state_abs }}/jetstream/jetstream/$G"
+    state: absent
+
+- name: Run NATS under launchd
+  ansible.builtin.include_role:
+    name: launchd
+  vars:
+    launchd_label: "{{ hub_host_label_prefix | default('io.osapi.lab') }}.nats"
+    launchd_program_arguments: "{{ lab_hub_cli + ['nats', 'start'] }}"
+    launchd_working_directory: "{{ lab_hub_state_abs }}"
+    launchd_log: "{{ lab_hub_state_abs }}/log/nats.log"
+    launchd_restart: >-
+      {{ lab_mode == 'restart'
+         or hub_host_binary_changed | default(false) or hub_host_config_changed | default(false)
+         or hub_tls_changed | default(false)
+         or nats_server_creds is changed or nats_server_resolver is changed
+         or nats_server_jetstream_key is changed }}

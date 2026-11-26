@@ -1,0 +1,49 @@
+---
+# What NATS and the controller share on the hub: the state directories, the
+# darwin build, the config that both read, and the firewall entry of the build.
+# hub_tls gets the certificate that they serve. nats_server and controller start
+# their process, and restart it when one of these changed.
+#
+# Each changed result is kept as a fact (hub_host_binary_changed and the others),
+# which those roles read.
+
+- name: Create the hub's directories
+  ansible.builtin.file:
+    path: "{{ lab_hub_state_abs }}/{{ item }}"
+    state: directory
+    mode: "0700"
+  loop: [bin, config, log, secrets]
+
+# copy writes a temporary file and renames it over the target: macOS kills a
+# signed binary whose bytes change while it runs, and a new inode keeps the
+# running process alive until its restart. A restart copies nothing.
+- name: Copy the darwin build
+  when: lab_mode != 'restart'
+  ansible.builtin.copy:
+    src: "{{ lab_state }}/bin/osapi-darwin-arm64"
+    dest: "{{ lab_hub_state_abs }}/bin/osapi-darwin-arm64"
+    mode: "0755"
+  register: hub_host_binary
+
+- name: Render the hub's config
+  ansible.builtin.template:
+    src: hub.yaml.j2
+    dest: "{{ lab_hub_state_abs }}/config/hub.yaml"
+    mode: "0600"
+  vars:
+    hub_state: "{{ lab_hub_state_abs }}"
+  register: hub_host_config
+
+- name: Let agents reach NATS through the firewall
+  ansible.builtin.include_role:
+    name: firewall
+    apply:
+      tags: [firewall]
+  vars:
+    firewall_app: "{{ lab_hub_state_abs }}/bin/osapi-darwin-arm64"
+  tags: [firewall]
+
+- name: Keep what changed, for the processes that read it
+  ansible.builtin.set_fact:
+    hub_host_binary_changed: "{{ hub_host_binary is changed }}"
+    hub_host_config_changed: "{{ hub_host_config is changed }}"

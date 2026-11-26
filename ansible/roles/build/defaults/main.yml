@@ -1,0 +1,8 @@
+---
+# The OSes to build: darwin for this machine's CLI and the hub, and linux when
+# the run gives the VMs a build. build_every_os builds both, as `just build`.
+build_every_os: false
+build_os: >-
+  {{ ['darwin', 'linux'] if (build_every_os | bool)
+     else ['darwin'] + (['linux'] if (lab_vms_in_scope | bool) and (lab_replace_vms + lab_update_vms) | length > 0 else []) }}
+build_force: false

@@ -1,0 +1,31 @@
+---
+# The agent of one running VM: a new linux build and a restart, as an operator
+# upgrades a host, or a restart alone. It is the one place where the lab changes
+# a running VM. Each other change replaces the VM with a clone of its image.
+# fleet_ready then waits for a new agent process that is Ready.
+
+# copy writes a temporary file and renames it over the target, so the agent
+# that runs keeps its own inode until the restart.
+- name: Copy the linux build
+  when: lab_agent_update | bool
+  ansible.builtin.copy:
+    src: "{{ lab_state }}/bin/osapi-linux-arm64"
+    dest: /usr/local/bin/osapi
+    mode: "0755"
+  register: lab_agent_binary
+  notify:
+    - Record the build that the VM runs
+    - Restart the agent
+
+- name: Restart the agent
+  when: lab_agent_restart | bool
+  ansible.builtin.systemd_service:
+    name: osapi-agent
+    state: restarted
+  changed_when: true
+  register: lab_agent_restarted
+
+# fleet_ready waits for a new process of each agent that started again.
+- name: Keep whether the agent starts again
+  ansible.builtin.set_fact:
+    lab_agent_started_again: "{{ lab_agent_binary is changed or lab_agent_restarted is changed }}"

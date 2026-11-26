@@ -1,0 +1,44 @@
+---
+# osapi's controller on the hub, which serves the API and the UI, under
+# launchd. It restarts when its binary, the config, the certificate or its
+# credentials changed, or in a restart. A deploy of the UI is a deploy of the
+# controller, because osapi embeds the UI. hub_host runs first.
+
+- name: Make the NATS user of the controller
+  ansible.builtin.include_role:
+    name: secrets
+    tasks_from: user
+  vars:
+    secrets_nats_user: controller
+
+- name: Copy the controller's NATS credentials
+  ansible.builtin.copy:
+    src: "{{ lab_nats_creds_dir }}/controller.creds"
+    dest: "{{ lab_hub_state_abs }}/secrets/controller.creds"
+    mode: "0600"
+  register: controller_creds
+
+- name: Run the controller under launchd
+  ansible.builtin.include_role:
+    name: launchd
+  vars:
+    launchd_label: "{{ hub_host_label_prefix | default('io.osapi.lab') }}.controller"
+    launchd_program_arguments: "{{ lab_hub_cli + ['controller', 'start'] }}"
+    launchd_working_directory: "{{ lab_hub_state_abs }}"
+    launchd_log: "{{ lab_hub_state_abs }}/log/controller.log"
+    launchd_restart: >-
+      {{ lab_mode == 'restart'
+         or hub_host_binary_changed | default(false) or hub_host_config_changed | default(false)
+         or hub_tls_changed | default(false) or controller_creds is changed }}
+
+# The controller answers once it reads its config and binds its port. A run
+# that goes on to the agents asks it about them.
+- name: Wait for the controller to answer
+  ansible.builtin.command:
+    argv: "{{ lab_hub_cli + ['client', 'health', 'liveness'] }}"
+  register: controller_live
+  until: controller_live.rc == 0
+  retries: 30
+  delay: 2
+  changed_when: false
+  check_mode: false

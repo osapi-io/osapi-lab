@@ -23,31 +23,9 @@
       changed_when: false
       check_mode: false
 
-    - name: Find each running VM's address
-      ansible.builtin.command: tart ip lab-{{ item.name }}
-      loop: "{{ lab_vms }}"
-      loop_control:
-        label: "{{ item.name }}"
-      register: list_ips
-      changed_when: false
-      failed_when: false
-      check_mode: false
-
-    - name: Add the running VMs to the inventory
-      ansible.builtin.add_host:
-        name: "{{ item.item.name }}"
-        groups: [vms]
-        ansible_host: "{{ item.stdout }}"
-        ansible_user: "{{ lab_vm_user }}"
-        ansible_ssh_private_key_file: "{{ lab_ssh_key }}"
-        ansible_ssh_common_args: >-
-          -o ProxyJump={{ (ansible_user ~ '@') if ansible_user is defined else '' }}{{ ansible_host }}
-          -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5
-      loop: "{{ list_ips.results }}"
-      loop_control:
-        label: "{{ item.item.name }}"
-      when: item.rc == 0 and item.stdout | length > 0
-      changed_when: false
+    - name: Find the running VMs
+      ansible.builtin.include_role:
+        name: vm_inventory
 
 - name: Read the VMs
   hosts: vms
@@ -82,7 +60,7 @@
           {%- set out = [] -%}
           {%- for vm in lab_vms -%}
             {%- set t = tart | selectattr('Name', 'equalto', 'lab-' ~ vm.name) | list -%}
-            {%- set ip = (hub.list_ips.results | selectattr('item.name', 'equalto', vm.name) | first).stdout | default('') -%}
+            {%- set ip = (hub.vm_inventory_ips.results | selectattr('item.name', 'equalto', vm.name) | first).stdout | default('') -%}
             {%- set raw = (hostvars[vm.name].list_vm.stdout | default('')) if vm.name in hostvars else '' -%}
             {%- set info = dict(raw.splitlines() | select('search', '=') | map('split', '=', 1)) -%}
             {%- set _ = out.append('%-10s %-8s %-15s %-8s %-7s %-32s %s' | format(
@@ -104,4 +82,5 @@
           {{ ['%-10s %-8s %-15s %-8s %-7s %-32s %s' | format('VM', 'STATE', 'ADDRESS', 'RUN BY', 'AGENT', 'IMAGE', 'OSAPI')]
              + rows
              + ['', 'images on the hub: ' ~ (images | join(', ')),
-                'last build here:   ' ~ ((lab_build_revision ~ ' (tag ' ~ lab_build_tag ~ ')') if lab_build_tag else (lab_build_revision or 'none'))] }}
+                'last linux build here:  ' ~ ((lab_build_revision ~ ' (tag ' ~ lab_build_tag ~ ')') if lab_build_tag else 'none'),
+                'last darwin build here: ' ~ (lab_hub_build_revision or 'none')] }}

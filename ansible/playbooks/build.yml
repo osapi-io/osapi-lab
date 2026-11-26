@@ -1,8 +1,18 @@
 ---
-# Compile the osapi checkout the inventory names, on this machine.
+# Compiles the osapi checkout that the inventory names, on this machine, for
+# darwin and linux. `just build`; lab.yml builds only what its run needs. It
+# holds the lock, because a bake in a different run copies these binaries.
+- name: Lock
+  ansible.builtin.import_playbook: lock.yml
+
 - name: Build osapi
   hosts: localhost
   connection: local
   gather_facts: false
+  vars:
+    build_every_os: true
   roles:
     - build
+
+- name: Unlock
+  ansible.builtin.import_playbook: unlock.yml

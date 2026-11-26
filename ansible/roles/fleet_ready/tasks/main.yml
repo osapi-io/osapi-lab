@@ -1,0 +1,45 @@
+---
+# Waits until the controller reports the agent of each VM of the run Ready, and
+# a new process for each agent that lab_agent started again. The controller can
+# report the old process as Ready for some seconds after a restart, so that
+# wait is for a different started_at as well as Ready. Runs on the hub.
+
+- name: Wait for each agent that started again to be a new process, Ready
+  ansible.builtin.command:
+    argv: "{{ lab_hub_cli + ['client', 'agent', 'list', '--json'] }}"
+  vars:
+    fleet_ready_old: >-
+      {{ ((fleet_ready_before.stdout | default('') or '{}') | from_json)['items'] | default([])
+         | selectattr('hostname', 'equalto', item) | map(attribute='started_at') | list }}
+    fleet_ready_new: >-
+      {{ ((fleet_ready_after.stdout | default('') or '{}') | from_json)['items'] | default([])
+         | selectattr('hostname', 'equalto', item) | selectattr('state', 'equalto', 'Ready')
+         | map(attribute='started_at') | list }}
+  loop: >-
+    {{ ((groups['vms_update'] | default([])) + (groups['vms_restart'] | default([]))) | unique | list }}
+  when: hostvars[item].lab_agent_started_again | default(false) | bool
+  register: fleet_ready_after
+  until: >-
+    fleet_ready_after.rc == 0
+    and fleet_ready_new | length > 0
+    and fleet_ready_new | reject('in', fleet_ready_old) | list | length > 0
+  retries: 36
+  delay: 5
+  changed_when: false
+  check_mode: false
+
+- name: Wait for each agent of the run to be Ready
+  ansible.builtin.command:
+    argv: "{{ lab_hub_cli + ['client', 'agent', 'list', '--json'] }}"
+  register: fleet_ready_agents
+  vars:
+    fleet_ready_names: >-
+      {{ ((fleet_ready_agents.stdout | default('{}') | from_json)['items'] | default([]))
+         | selectattr('state', 'equalto', 'Ready') | map(attribute='hostname') | list }}
+  until: >-
+    fleet_ready_agents.rc == 0
+    and (lab_targets | map(attribute='name') | reject('in', fleet_ready_names) | list | length) == 0
+  retries: 36
+  delay: 5
+  changed_when: false
+  check_mode: false
