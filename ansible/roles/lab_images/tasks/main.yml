@@ -52,8 +52,7 @@
   failed_when: false
   check_mode: false
 # A VM that upgrades in place clones its image one time. While the VM
-# exists, it needs no new image: the upgrade playbook copies each build
-# into it. lab_images_rebuild=true bakes it again, for `just rebuild`.
+# exists, it needs no new image: a bump copies each build into it. lab_images_rebuild=true bakes it again, for `just rebuild`.
 - name: Choose the images to build
   vars:
     lab_images_kept: >-
@@ -144,13 +143,23 @@
   loop: "{{ lab_images_wanted }}"
   loop_control:
     label: "{{ item.name }}"
-# bump.yml reads it: a bump copies a build into the VMs, so it must not
-# run when the packer directory, which the images are baked from, changed.
-- name: Record the packer directory that the images are baked from
+# current.yml reads it: a bump copies a build into a VM, so it must not run
+# when the packer directory changed since the VM's image was baked. Each VM
+# has its own record, because a run can bake the images of some VMs only. A
+# VM whose image this run did not bake keeps its record, or gets one when its
+# image is current.
+- name: Record the packer directory that each VM's image is baked from
+  vars:
+    lab_images_current: >-
+      {{ lab_images_baked.results | selectattr('stdout', 'equalto', lab_images_fingerprint)
+         | map(attribute='item') | list }}
   ansible.builtin.copy:
-    dest: "{{ lab_hub_state_abs }}/images/packer.sum"
-    content: "{{ lab_images_packer_sum.stdout }}"
+    dest: "{{ lab_hub_state_abs }}/images/{{ item.name }}.packer.sum"
+    content: "{{ lab_images_packer_sum.stdout }}\n"
     mode: "0644"
+  loop: "{{ (lab_images_wanted + lab_images_current) | unique | list }}"
+  loop_control:
+    label: "{{ item.name }}"
 - name: Record the fingerprint each image was baked from
   ansible.builtin.copy:
     dest: "{{ lab_hub_state_abs }}/images/img-{{ item.name }}-{{ lab_build_tag }}.fingerprint"

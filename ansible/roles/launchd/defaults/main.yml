@@ -15,3 +15,12 @@ launchd_keep_alive: true
 # Restart it now even when the plist did not change, such as after its binary
 # or config did.
 launchd_restart: false
+# The files that the program reads at its start, such as its binary, its config
+# and its certificate. The role keeps their checksum in launchd_inputs_record
+# when the program starts, and restarts it when they changed since then, also
+# when an earlier run changed them: a run that changes a file that a different
+# program reads leaves that program to the next run of its own.
+launchd_inputs: []
+# The file that holds the checksum of launchd_inputs at the program's start.
+# Required when launchd_inputs is set.
+launchd_inputs_record: ""

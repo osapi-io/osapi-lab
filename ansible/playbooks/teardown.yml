@@ -3,8 +3,9 @@
 # trace collector, the firewall entry and the hub's state directory. Safe to
 # run again, and on a hub that never ran the lab.
 #
-# Kept unless asked: the images the VMs are cloned from, which take the
-# longest to rebuild (-e lab_teardown_images=true), and this machine's .lab,
+# Kept unless asked: the images the VMs are cloned from, with the records of
+# what each was baked from, which take the longest to rebuild
+# (-e lab_teardown_images=true), and this machine's .lab,
 # which holds the lab's NATS operator and keys (-e lab_teardown_local=true).
 # Removing the firewall entry needs passwordless sudo.
 - name: Lock
@@ -79,10 +80,24 @@
       loop_control:
         label: "{{ item.item }}"
 
-    - name: Remove the hub's state directory
+    # images/ holds the fingerprint that each kept image was baked from. It
+    # goes with the images: without it, the next deploy bakes each image again.
+    - name: List the hub's state directory
+      ansible.builtin.find:
+        paths: "{{ lab_hub_state_abs }}"
+        file_type: any
+        hidden: true
+      register: teardown_state
+
+    - name: Remove the hub's state, but the records of the kept images
       ansible.builtin.file:
-        path: "{{ lab_hub_state_abs }}"
+        path: "{{ item }}"
         state: absent
+      loop: >-
+        {{ teardown_state.files | map(attribute='path')
+           | reject('equalto', lab_hub_state_abs ~ '/images')
+           | list if not (lab_teardown_images | default(false) | bool)
+           else [lab_hub_state_abs] }}
 
 - name: Teardown this machine
   hosts: localhost

@@ -168,3 +168,14 @@ lab_hub_path: >-
 
 # The Tailscale CLI on the hub, which issues the API's certificate.
 lab_tailscale_cli: /Applications/Tailscale.app/Contents/MacOS/Tailscale
+
+# The files that each hub process reads at its start. The launchd role restarts
+# a process when one of them is not the one it started on, also when an earlier
+# run changed it, such as `just deploy ui`, which copies the darwin build that
+# NATS runs too. Each process keeps its record in run/ on the hub.
+lab_hub_inputs_common:
+  - "{{ lab_hub_state_abs }}/bin/osapi-darwin-arm64"
+  - "{{ lab_hub_state_abs }}/config/hub.yaml"
+  - "{{ lab_hub_state_abs }}/tls/api.crt"
+  - "{{ lab_hub_state_abs }}/tls/api.key"
+  - "{{ lab_hub_nats_dir }}/resolver.conf"

@@ -4,6 +4,7 @@
     that:
       - launchd_label | length > 0
       - launchd_program_arguments | length > 0
+      - launchd_inputs | length == 0 or launchd_inputs_record | length > 0
     quiet: true
 
 - name: Find the user's session for {{ launchd_label }}
@@ -31,6 +32,33 @@
   check_mode: false
   failed_when: false
 
+- name: Checksum the files read at the start of {{ launchd_label }}
+  when: launchd_inputs | length > 0
+  ansible.builtin.shell: |
+    set -euo pipefail
+    for f in {{ launchd_inputs | map('quote') | join(' ') }}; do
+      if [ -e "$f" ]; then shasum -a 256 "$f"; else echo "missing $f"; fi
+    done | shasum -a 256 | cut -c1-64
+  args:
+    executable: /bin/bash
+  register: launchd_inputs_now
+  changed_when: false
+  check_mode: false
+
+- name: Read the checksum of the files at the start of {{ launchd_label }}
+  when: launchd_inputs | length > 0
+  ansible.builtin.command: cat {{ launchd_inputs_record | quote }}
+  register: launchd_inputs_then
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Decide whether old files run in {{ launchd_label }}
+  ansible.builtin.set_fact:
+    launchd_stale: >-
+      {{ launchd_inputs | length > 0
+         and (launchd_inputs_then.stdout | default('') | trim) != launchd_inputs_now.stdout }}
+
 # bootout and bootstrap, not load and unload: the old pair is deprecated and
 # does not reread a changed plist reliably.
 - name: Load {{ launchd_label }}
@@ -42,7 +70,15 @@
 
 - name: Restart {{ launchd_label }}
   when:
-    - launchd_restart | bool
+    - launchd_restart | bool or launchd_stale | bool
     - not (launchd_written is changed or launchd_loaded.rc != 0)
   ansible.builtin.command: launchctl kickstart -k {{ launchd_domain }}/{{ launchd_label }}
   changed_when: true
+
+# The program now runs these files: it started on them, or it ran them already.
+- name: Record the checksum of the files that started {{ launchd_label }}
+  when: launchd_inputs | length > 0
+  ansible.builtin.copy:
+    dest: "{{ launchd_inputs_record }}"
+    content: "{{ launchd_inputs_now.stdout }}\n"
+    mode: "0600"

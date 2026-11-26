@@ -57,6 +57,8 @@
         launchd_working_directory: "{{ lab_hub_state_abs }}"
         launchd_log: "{{ lab_hub_state_abs }}/log/controller.log"
         launchd_restart: true
+        launchd_inputs: "{{ lab_hub_inputs_common }}"
+        launchd_inputs_record: "{{ lab_hub_state_abs }}/run/controller.inputs"
 
     - name: Wait for the controller to answer on the references
       ansible.builtin.command:

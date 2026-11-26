@@ -1,14 +1,15 @@
 ---
 # Jaeger on the hub, the one collector of the lab's traces, under launchd: the
 # native darwin-arm64 binary of its release, pinned by checksum. It restarts
-# when its binary, its config or the certificate changed, or in a restart.
+# when its binary, its config or the certificate is not the one it started on,
+# or in a restart.
 
 - name: Create the collector's directories
   ansible.builtin.file:
     path: "{{ lab_hub_state_abs }}/{{ item }}"
     state: directory
     mode: "0700"
-  loop: [bin, config, log]
+  loop: [bin, config, log, run]
 
 - name: Download the trace collector
   ansible.builtin.get_url:
@@ -30,7 +31,6 @@
       - "jaeger-{{ lab_tracing_version }}-darwin-arm64/jaeger"
   args:
     creates: "{{ lab_hub_state_abs }}/bin/jaeger"
-  register: jaeger_binary
 
 - name: Write the trace collector config
   ansible.builtin.template:
@@ -39,7 +39,6 @@
     mode: "0600"
   vars:
     hub_state: "{{ lab_hub_state_abs }}"
-  register: jaeger_config
 
 - name: Let the VMs reach the trace collector through the firewall
   ansible.builtin.include_role:
@@ -61,6 +60,10 @@
       - "{{ lab_hub_state_abs }}/config/jaeger.yaml"
     launchd_working_directory: "{{ lab_hub_state_abs }}"
     launchd_log: "{{ lab_hub_state_abs }}/log/jaeger.log"
-    launchd_restart: >-
-      {{ lab_mode == 'restart' or jaeger_binary is changed or jaeger_config is changed
-         or hub_tls_changed | default(false) }}
+    launchd_restart: "{{ lab_mode == 'restart' }}"
+    launchd_inputs:
+      - "{{ lab_hub_state_abs }}/bin/jaeger"
+      - "{{ lab_hub_state_abs }}/config/jaeger.yaml"
+      - "{{ lab_hub_state_abs }}/tls/api.crt"
+      - "{{ lab_hub_state_abs }}/tls/api.key"
+    launchd_inputs_record: "{{ lab_hub_state_abs }}/run/jaeger.inputs"
