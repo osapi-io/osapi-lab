@@ -52,8 +52,31 @@
     path: "{{ client_remote_key_dir }}/nats-join.json"
   register: client_remote_joined
 
-- name: Make the remote agent's join token
+# `just stop controller` and `just ssh` run this role with the controller
+# down. The remote agent's config then waits for a run with the controller up.
+- name: Check whether the controller answers
   when: not client_remote_joined.stat.exists
+  ansible.builtin.command:
+    argv: "{{ hostvars[lab_hub].lab_hub_cli + ['client', 'health', 'liveness'] }}"
+  delegate_to: "{{ lab_hub }}"
+  register: client_controller_live
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Say that the remote agent's config waits for the controller
+  when:
+    - not client_remote_joined.stat.exists
+    - client_controller_live.rc != 0
+  ansible.builtin.debug:
+    msg: >-
+      The controller does not answer, so this run writes no config for
+      `just agent`. A run with the controller up writes it.
+
+- name: Make the remote agent's join token
+  when:
+    - not client_remote_joined.stat.exists
+    - client_controller_live.rc == 0
   ansible.builtin.command:
     argv: >-
       {{ hostvars[lab_hub].lab_hub_cli + ['controller', 'join', 'token', 'create',
@@ -64,7 +87,9 @@
   no_log: true
 
 - name: Render the remote agent config
-  when: not client_remote_joined.stat.exists
+  when:
+    - not client_remote_joined.stat.exists
+    - client_controller_live.rc == 0
   ansible.builtin.template:
     src: agent.yaml.j2
     dest: "{{ lab_state }}/config/agent-remote.yaml"

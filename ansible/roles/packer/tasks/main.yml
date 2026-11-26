@@ -2,13 +2,22 @@
 # Runs one packer build of the template in packer_template_dir, on the host,
 # with packer_vars as -var arguments and packer_env in the environment. A
 # value that is a secret goes in packer_env as PKR_VAR_<name>, so it is in no
-# argument list, and this task logs neither.
+# argument list. The template marks each such variable sensitive, so Packer
+# prints none of them, and a failed build shows its output.
 - name: Check the packer arguments
   ansible.builtin.assert:
     that:
       - packer_template_dir | length > 0
       - packer_dest | length > 0
     quiet: true
+
+# A copy adds and replaces files, but removes none: a file that the template
+# no longer has would stay in the build.
+- name: Remove the earlier copy of the template
+  ansible.builtin.file:
+    path: "{{ packer_dest }}"
+    state: absent
+  changed_when: false
 
 - name: Copy the template to {{ packer_dest }}
   ansible.builtin.copy:
@@ -33,5 +42,4 @@
             | map('join', '=') | map('regex_replace', '^', '-var=') | list)
          + ['.'] }}
   environment: "{{ packer_env }}"
-  no_log: "{{ packer_env | length > 0 }}"
   changed_when: true

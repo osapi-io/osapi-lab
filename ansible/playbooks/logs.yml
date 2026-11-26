@@ -3,12 +3,18 @@
 # lab_logs names, such as jaeger or vm-ubuntu-1. Changes nothing.
 - name: Logs
   hosts: hub
-  gather_facts: false
+  gather_facts: true
+  gather_subset: [min]
   vars:
     lab_logs: nats,controller
   tasks:
     - name: Read the last lines of each log
-      ansible.builtin.command: tail -n {{ lab_log_lines | default(40) }} {{ lab_hub_state }}/log/{{ item }}.log
+      ansible.builtin.command:
+        argv:
+          - tail
+          - -n
+          - "{{ lab_log_lines | default(40) }}"
+          - "{{ lab_hub_state_abs }}/log/{{ item }}.log"
       loop: "{{ lab_logs.split(',') | map('trim') | select | list }}"
       register: logs_out
       changed_when: false

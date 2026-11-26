@@ -18,19 +18,29 @@
     checksum: "sha256:{{ lab_tracing_archive_sha256 }}"
     mode: "0644"
 
+- name: Read the version of the unpacked trace collector
+  ansible.builtin.command: cat {{ lab_hub_state_abs }}/bin/jaeger.version
+  register: jaeger_unpacked
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+# It unpacks beside the binary and renames it over the binary: macOS stops a
+# signed binary whose bytes change while it runs.
 - name: Unpack the trace collector
-  ansible.builtin.command:
-    argv:
-      - tar
-      - -xzf
-      - "{{ lab_hub_state_abs }}/bin/jaeger-{{ lab_tracing_version }}.tar.gz"
-      - -C
-      - "{{ lab_hub_state_abs }}/bin"
-      - --strip-components
-      - "1"
-      - "jaeger-{{ lab_tracing_version }}-darwin-arm64/jaeger"
+  when: (jaeger_unpacked.stdout | default('') | trim) != lab_tracing_version
+  ansible.builtin.shell: |
+    set -euo pipefail
+    bin={{ (lab_hub_state_abs ~ '/bin') | quote }}
+    rm -rf "$bin/jaeger.unpack" && mkdir "$bin/jaeger.unpack"
+    tar -xzf "$bin/jaeger-{{ lab_tracing_version }}.tar.gz" -C "$bin/jaeger.unpack" \
+      --strip-components 1 "jaeger-{{ lab_tracing_version }}-darwin-arm64/jaeger"
+    mv -f "$bin/jaeger.unpack/jaeger" "$bin/jaeger"
+    rmdir "$bin/jaeger.unpack"
+    echo {{ lab_tracing_version | quote }} > "$bin/jaeger.version"
   args:
-    creates: "{{ lab_hub_state_abs }}/bin/jaeger"
+    executable: /bin/bash
+  changed_when: true
 
 - name: Write the trace collector config
   ansible.builtin.template:

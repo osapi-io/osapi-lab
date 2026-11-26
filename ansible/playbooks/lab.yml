@@ -38,9 +38,13 @@
   connection: local
   gather_facts: false
   tags: [always]
+  # restart, stop and start copy no build, but the secrets role checks the
+  # admin token with the darwin build: a checkout with none builds it.
   roles:
     - role: build
-      when: lab_mode not in ['restart', 'stop', 'start']
+      when: >-
+        lab_mode not in ['restart', 'stop', 'start']
+        or not (lab_state ~ '/bin/osapi-darwin-arm64') is file
 
 # The admin token is checked against the signing keys on each run, and signed
 # again when a key changed or it expires soon.
