@@ -50,10 +50,30 @@
     path: "{{ client_remote_key_dir }}/nats-join.json"
   register: client_remote_joined
 
+# A token lives lab_join_expires, and the config that holds it is written
+# with it. Until the agent joins, a run keeps a config whose token is still
+# good, rather than mint a new one-use token each run (osapi-io/osapi-lab#90).
+# An hour of margin leaves `just agent` time to use it.
+- name: Check the remote agent's config
+  when: not client_remote_joined.stat.exists
+  ansible.builtin.stat:
+    path: "{{ lab_state }}/config/agent-remote.yaml"
+  register: client_remote_config
+
+- name: Decide whether the remote agent needs a new token
+  when: not client_remote_joined.stat.exists
+  ansible.builtin.set_fact:
+    client_remote_mint: >-
+      {{ not client_remote_config.stat.exists
+         or (now().timestamp() - client_remote_config.stat.mtime)
+            > (lab_join_expires | regex_replace('h$', '') | int - 1) * 3600 }}
+
 # `just stop controller` and `just ssh` run this role with the controller
 # down. The remote agent's config then waits for a run with the controller up.
 - name: Check whether the controller answers
-  when: not client_remote_joined.stat.exists
+  when:
+    - not client_remote_joined.stat.exists
+    - client_remote_mint | bool
   ansible.builtin.command:
     argv: "{{ hostvars[lab_hub].lab_hub_cli + ['client', 'health', 'liveness'] }}"
   delegate_to: "{{ lab_hub }}"
@@ -65,6 +85,7 @@
 - name: Say that the remote agent's config waits for the controller
   when:
     - not client_remote_joined.stat.exists
+    - client_remote_mint | bool
     - client_controller_live.rc != 0
   ansible.builtin.debug:
     msg: >-
@@ -74,6 +95,7 @@
 - name: Make the remote agent's join token
   when:
     - not client_remote_joined.stat.exists
+    - client_remote_mint | bool
     - client_controller_live.rc == 0
   ansible.builtin.command:
     argv: >-
@@ -87,6 +109,7 @@
 - name: Render the remote agent config
   when:
     - not client_remote_joined.stat.exists
+    - client_remote_mint | bool
     - client_controller_live.rc == 0
   ansible.builtin.template:
     src: agent.yaml.j2
