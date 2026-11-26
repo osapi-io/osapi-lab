@@ -13,7 +13,7 @@
 # The firewall knows an unsigned program by its signature, so a rebuilt binary
 # at the same path reads as blocked again.
 - name: Check whether the firewall blocks {{ firewall_app | basename }}
-  ansible.builtin.command: /usr/libexec/ApplicationFirewall/socketfilterfw --getappblocked {{ firewall_app }}
+  ansible.builtin.command: /usr/libexec/ApplicationFirewall/socketfilterfw --getappblocked {{ firewall_app | quote }}
   register: firewall_blocked
   changed_when: false
   check_mode: false
@@ -30,6 +30,6 @@
   when: "'is blocked' in firewall_blocked.stdout or 'not part of' in firewall_blocked.stdout"
   become: true
   ansible.builtin.shell: |
-    /usr/libexec/ApplicationFirewall/socketfilterfw --add {{ firewall_app }}
-    /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp {{ firewall_app }}
+    /usr/libexec/ApplicationFirewall/socketfilterfw --add {{ firewall_app | quote }}
+    /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp {{ firewall_app | quote }}
   changed_when: true

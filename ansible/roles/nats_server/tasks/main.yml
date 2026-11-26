@@ -20,7 +20,7 @@
   ansible.builtin.include_role:
     name: launchd
   vars:
-    launchd_label: "{{ hub_host_label_prefix | default('io.osapi.lab') }}.nats"
+    launchd_label: "{{ lab_labels.nats }}"
     launchd_program_arguments: "{{ lab_hub_cli + ['nats', 'start'] }}"
     launchd_working_directory: "{{ lab_hub_state_abs }}"
     launchd_log: "{{ lab_hub_state_abs }}/log/nats.log"

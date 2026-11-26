@@ -43,7 +43,7 @@
   changed_when: false
   check_mode: false
 - name: Read the fingerprint each image was baked from
-  ansible.builtin.command: cat {{ lab_hub_state_abs }}/images/img-{{ item.name }}-{{ lab_build_tag }}.fingerprint
+  ansible.builtin.command: cat {{ (lab_hub_state_abs ~ '/images/img-' ~ item.name ~ '-' ~ lab_build_tag ~ '.fingerprint') | quote }}
   loop: "{{ lab_images_vms }}"
   loop_control:
     label: "{{ item.name }}"
@@ -131,6 +131,7 @@
       revision: "{{ lab_build_revision }}"
       osapi_binary: "{{ lab_hub_state_abs }}/bin/osapi-linux-arm64"
       ssh_pubkey: "{{ lookup('ansible.builtin.file', lab_ssh_key ~ '.pub') }}"
+      nats_host: "{{ lab_vm_gateway }}"
       nats_port: "{{ lab_nats_port }}"
       tracing_port: "{{ lab_tracing_otlp_port }}"
       hub_name: "{{ lab_hub_addr }}"

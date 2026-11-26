@@ -22,13 +22,11 @@
     flat: true
   delegate_to: "{{ lab_hub }}"
 
-- name: Remove nats-sys and its credentials, from when nsc made a system user
+# fetch has no mode: the file gets the umask's mode.
+- name: Let only this user read the credentials
   ansible.builtin.file:
-    path: "{{ item }}"
-    state: absent
-  loop:
-    - "{{ lab_state }}/bin/nats-sys"
-    - "{{ lab_nats_creds_dir }}/sys.creds"
+    path: "{{ lab_nats_creds_dir }}/cli.creds"
+    mode: "0600"
 
 - name: Write the nats CLI's environment
   ansible.builtin.copy:

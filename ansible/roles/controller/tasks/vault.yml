@@ -52,7 +52,7 @@
       ansible.builtin.include_role:
         name: launchd
       vars:
-        launchd_label: io.osapi.lab.controller
+        launchd_label: "{{ lab_labels.controller }}"
         launchd_program_arguments: "{{ lab_hub_cli + ['controller', 'start'] }}"
         launchd_working_directory: "{{ lab_hub_state_abs }}"
         launchd_log: "{{ lab_hub_state_abs }}/log/controller.log"

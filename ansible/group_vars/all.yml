@@ -3,7 +3,7 @@
 # image is the Packer build it is cloned from (img-<name>-<tag> on the hub).
 #
 # A VM with upgrade_in_place: true is cloned one time and then kept: deploy
-# bakes no new image for it and does not clone it again. The upgrade playbook
+# bakes no new image for it and does not clone it again. A deploy or a bump
 # copies each new linux build into it and restarts its agent. Thus it keeps its
 # machine ID, its consumers and its job history across builds, as a host that
 # runs for a long time does (osapi-io/osapi-lab#49). `just rebuild` replaces it.
@@ -102,7 +102,8 @@ lab_hub_nats_dir: "{{ lab_hub_state_abs }}/nats"
 # Where a VM reaches NATS in its join string: the gateway of tart's network,
 # in place of the tailnet name of the controller's join URL. The agent checks
 # the hub's certificate for its tailnet name.
-lab_vm_nats_url: tls://192.168.64.1:{{ lab_nats_port }}
+lab_vm_gateway: 192.168.64.1
+lab_vm_nats_url: tls://{{ lab_vm_gateway }}:{{ lab_nats_port }}
 # How long a join token of an image admits its VM, which joins at its first
 # boot, minutes after the bake.
 lab_join_expires: 24h
@@ -122,7 +123,7 @@ lab_tracing_ui_port: 16686
 # machine (lab_hub_addr, from the inventory); set any of them in the inventory
 # to show a different location. The metrics servers answer the hub only, so
 # they get none.
-lab_controller_url: https://{{ lab_hub_addr }}:8080/
+lab_controller_url: https://{{ lab_hub_addr }}:{{ lab_api_port }}/
 lab_tracing_view_url: https://{{ lab_hub_addr }}:{{ lab_tracing_ui_port }}/
 lab_nats_url: tls://{{ lab_hub_addr }}:{{ lab_nats_port }}
 
@@ -179,3 +180,12 @@ lab_hub_inputs_common:
   - "{{ lab_hub_state_abs }}/tls/api.crt"
   - "{{ lab_hub_state_abs }}/tls/api.key"
   - "{{ lab_hub_nats_dir }}/resolver.conf"
+
+# The launchd label of each process of the lab on the hub, and of each VM:
+# io.osapi.lab.<process> and io.osapi.lab.vm.<name>.
+lab_label_prefix: io.osapi.lab
+lab_labels:
+  nats: "{{ lab_label_prefix }}.nats"
+  controller: "{{ lab_label_prefix }}.controller"
+  jaeger: "{{ lab_label_prefix }}.jaeger"
+lab_vm_label_prefix: "{{ lab_label_prefix }}.vm."

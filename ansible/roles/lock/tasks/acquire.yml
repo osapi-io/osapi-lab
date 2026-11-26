@@ -61,7 +61,7 @@
   check_mode: false
 
 - name: Read the lock
-  ansible.builtin.command: cat {{ lock_dir }}/holder
+  ansible.builtin.command: cat {{ (lock_dir ~ '/holder') | quote }}
   register: lock_current
   changed_when: false
   failed_when: false
@@ -129,11 +129,11 @@
     set -u
     end=$(( $(date +%s) + {{ lab_lock_wait | default(30) | int }} * 60 ))
     while [ "$(date +%s)" -lt "$end" ]; do
-      [ -f {{ lock_dir }}/holder ] || break
-      [ "$(head -1 {{ lock_dir }}/holder)" = "{{ lock_holder }}" ] && break
+      [ -f {{ (lock_dir ~ '/holder') | quote }} ] || break
+      [ "$(head -1 {{ (lock_dir ~ '/holder') | quote }})" = {{ lock_holder | quote }} ] && break
       sleep 5
     done
-    cat {{ lock_dir }}/holder 2>/dev/null || exit 3
+    cat {{ (lock_dir ~ '/holder') | quote }} 2>/dev/null || exit 3
   args:
     executable: /bin/bash
   register: lock_waited
@@ -174,7 +174,7 @@
         state: directory
         mode: "0700"
     - name: Make the lock
-      ansible.builtin.command: mkdir {{ lock_dir }}
+      ansible.builtin.command: mkdir {{ lock_dir | quote }}
       changed_when: true
     - name: Say which run holds the lock
       ansible.builtin.copy:

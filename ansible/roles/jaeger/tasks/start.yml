@@ -6,4 +6,4 @@
     name: launchd
     tasks_from: start
   vars:
-    launchd_label: "{{ jaeger_label }}"
+    launchd_label: "{{ lab_labels.jaeger }}"

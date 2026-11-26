@@ -7,7 +7,7 @@
 
 controller:
   client:
-    url: https://{{ lab_hub_addr }}:8080
+    url: https://{{ lab_hub_addr }}:{{ lab_api_port }}
     security:
       bearer_token: {{ lab_token }}
   api:

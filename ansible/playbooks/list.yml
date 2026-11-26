@@ -67,7 +67,7 @@
                   vm.name,
                   (t | first).State if t else 'absent',
                   ip or '-',
-                  'launchd' if ('io.osapi.lab.vm.' ~ vm.name) in loaded else 'manual',
+                  'launchd' if (lab_vm_label_prefix ~ vm.name) in loaded else 'manual',
                   info.agent | default('-'),
                   info.image | default('(untagged image)' if raw else '-'),
                   info.osapi | default('-'))) -%}

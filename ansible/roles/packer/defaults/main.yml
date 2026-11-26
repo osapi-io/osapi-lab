@@ -1,7 +1,7 @@
 ---
 packer_template_dir: ""
 packer_dest: ""
-packer_version: latest
+packer_version: 1.16.2
 packer_vars: {}
 packer_env: {}
 packer_force: true

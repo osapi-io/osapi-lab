@@ -10,7 +10,7 @@
   ansible.builtin.include_tasks: fingerprint.yml
 
 - name: Read the packer directory that each VM's image is baked from
-  ansible.builtin.command: cat {{ lab_hub_state_abs }}/images/{{ item.name }}.packer.sum
+  ansible.builtin.command: cat {{ (lab_hub_state_abs ~ '/images/' ~ item.name ~ '.packer.sum') | quote }}
   loop: "{{ lab_update_vms | rejectattr('name', 'in', lab_in_place) | list }}"
   loop_control:
     label: "{{ item.name }}"
