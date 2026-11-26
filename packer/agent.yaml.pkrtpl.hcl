@@ -1,25 +1,14 @@
-# One agent, baked into its image by packer/lab.pkr.hcl. Each key that is not
-# here has its default.
-
+# The config of a lab VM's agent. The agent joins at its first boot with the
+# join string: it pins the hub's certificate, asks the controller to admit it,
+# and keeps its NATS user and the server in agent.pki.key_dir. Later starts
+# read those, and use no token. The join string reaches the hub at the gateway
+# of tart's network; the agent then checks the hub's certificate for its
+# tailnet name (osapi-io/osapi#1491).
 agent:
   hostname: ${hostname}
+  join: ${join}
   labels:
     distro: ${distro}
-  nats:
-    host: ${nats_host}
-    port: ${nats_port}
-    # Its own user in osapi's NATS account: adding a host is issuing it
-    # credentials, with no change on the server.
-    auth:
-      type: creds
-      creds_file: ${creds_file}
-    # The VM dials the hub by its address on tart's network; the hub's
-    # certificate names its Tailscale name.
-    tls:
-      enabled: true
-      server_name: ${hub_name}
-  # osapi's integration suite runs its command examples against the lab, as
-  # CI's agent allows them. The lab's VMs are test hosts.
   command:
     enabled: true
 
@@ -28,8 +17,6 @@ telemetry:
     enabled: true
     exporter: otlp
     otlp_endpoint: ${nats_host}:${tracing_port}
-    # The VM dials the hub by its address on tart's network; the hub's
-    # certificate names its Tailscale name.
     tls:
       enabled: true
       server_name: ${hub_name}

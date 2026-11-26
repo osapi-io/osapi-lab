@@ -11,35 +11,24 @@
     dest: "{{ lab_state }}/config/cli.yaml"
     mode: "0600"
 
-# The nats CLI in this directory, through .envrc: its own user in osapi's
-# account, and the hub's address, so `nats kv ls` or `nats stream ls` shows the
-# lab's NATS as osapi sees it.
-- name: Make the nats CLI's NATS user
-  ansible.builtin.include_role:
-    name: secrets
-    tasks_from: user
-  vars:
-    secrets_nats_user: cli
+# The nats CLI in this directory, through .envrc, connects as the controller's
+# user: it reads the lab's streams, buckets and consumers as osapi does. The
+# lab has no user with more: osapi nats auth operator create makes one for
+# each osapi role, and no system user.
+- name: Copy the controller's credentials for the nats CLI
+  ansible.builtin.fetch:
+    src: "{{ hostvars[lab_hub].lab_hub_nats_dir }}/controller.creds"
+    dest: "{{ lab_nats_creds_dir }}/cli.creds"
+    flat: true
+  delegate_to: "{{ lab_hub }}"
 
-# The system account's user, which nsc made with the operator. Server-wide
-# commands, such as `nats server report jetstream`, need it; `nats-sys` uses it,
-# and plain `nats` keeps to the cli user.
-- name: Copy the system account's credentials
-  ansible.builtin.copy:
-    src: "{{ lab_nsc_dir }}/keys/creds/lab/SYS/sys.creds"
-    dest: "{{ lab_nats_creds_dir }}/sys.creds"
-    mode: "0600"
-
-# .envrc puts .lab/bin on PATH, so `nats-sys server list` works in this
-# directory like any command.
-- name: Write nats-sys, the nats CLI as the system account
-  ansible.builtin.copy:
-    dest: "{{ lab_state }}/bin/nats-sys"
-    content: |
-      #!/bin/sh
-      # The nats CLI as NATS's system account, for server-wide commands.
-      NATS_CREDS="{{ lab_nats_creds_dir }}/sys.creds" exec nats "$@"
-    mode: "0755"
+- name: Remove nats-sys and its credentials, from when nsc made a system user
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - "{{ lab_state }}/bin/nats-sys"
+    - "{{ lab_nats_creds_dir }}/sys.creds"
 
 - name: Write the nats CLI's environment
   ansible.builtin.copy:
@@ -49,24 +38,43 @@
       NATS_CREDS={{ lab_nats_creds_dir }}/cli.creds
     mode: "0600"
 
-- name: Make the remote agent's NATS user
-  ansible.builtin.include_role:
-    name: secrets
-    tasks_from: user
-  vars:
-    secrets_nats_user: agent-remote
+# The remote agent, `just agent`, joins as a VM does, with a token of its own,
+# and keeps what the join gave it in its key_dir. Its join string dials the
+# hub's tailnet name, as the controller's join URL says.
+- name: Create the remote agent's key directory
+  ansible.builtin.file:
+    path: "{{ client_remote_key_dir }}"
+    state: directory
+    mode: "0700"
 
-# A remote agent uses its own hostname and dials the hub's tailnet address.
+- name: Check whether the remote agent joined
+  ansible.builtin.stat:
+    path: "{{ client_remote_key_dir }}/nats-join.json"
+  register: client_remote_joined
+
+- name: Make the remote agent's join token
+  when: not client_remote_joined.stat.exists
+  ansible.builtin.command:
+    argv: >-
+      {{ hostvars[lab_hub].lab_hub_cli + ['controller', 'join', 'token', 'create',
+         '--expires', lab_join_expires, '--uses', '1', '--labels', 'distro=' ~ client_distro, '--json'] }}
+  delegate_to: "{{ lab_hub }}"
+  register: client_remote_token
+  changed_when: true
+  no_log: true
+
 - name: Render the remote agent config
+  when: not client_remote_joined.stat.exists
   ansible.builtin.template:
     src: agent.yaml.j2
     dest: "{{ lab_state }}/config/agent-remote.yaml"
     mode: "0600"
   vars:
-    agent_node: ""
     agent_distro: "{{ client_distro }}"
-    agent_nats_host: "{{ lab_hub_addr }}"
-    agent_creds_file: "{{ lab_nats_creds_dir }}/agent-remote.creds"
+    agent_key_dir: "{{ client_remote_key_dir }}"
+    agent_join: >-
+      {{ (client_remote_token.stdout | from_json)['join'] }}
+  no_log: true
 
 # `ssh -F .lab/ssh/config <vm>` reaches a VM through the hub; scp and rsync
 # take the same file. Written only when this run found the VMs.

@@ -1,28 +1,7 @@
 ---
 # osapi's NATS server on the hub, in operator mode, under launchd. It restarts
-# when its binary, the config, the certificate, its credentials, the resolver
-# or the JetStream key changed, or in a restart. hub_host runs first.
-
-- name: Make the NATS user of the server
-  ansible.builtin.include_role:
-    name: secrets
-    tasks_from: user
-  vars:
-    secrets_nats_user: nats
-
-- name: Copy the server's NATS credentials
-  ansible.builtin.copy:
-    src: "{{ lab_nats_creds_dir }}/nats.creds"
-    dest: "{{ lab_hub_state_abs }}/secrets/nats.creds"
-    mode: "0600"
-  register: nats_server_creds
-
-- name: Copy the NATS resolver config
-  ansible.builtin.copy:
-    src: "{{ lab_nats_resolver }}"
-    dest: "{{ lab_hub_state_abs }}/config/resolver.conf"
-    mode: "0600"
-  register: nats_server_resolver
+# when its binary, the config, the certificate, the NATS auth or the JetStream
+# key changed, or in a restart. hub_host runs first.
 
 - name: Make the JetStream encryption key
   ansible.builtin.command:
@@ -50,5 +29,5 @@
       {{ lab_mode == 'restart'
          or hub_host_binary_changed | default(false) or hub_host_config_changed | default(false)
          or hub_tls_changed | default(false)
-         or nats_server_creds is changed or nats_server_resolver is changed
+         or hub_host_nats_auth_changed | default(false)
          or nats_server_jetstream_key is changed }}

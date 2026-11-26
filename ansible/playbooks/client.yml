@@ -10,9 +10,10 @@
   roles:
     - vm_inventory
 
+# No connection: local here: it would also apply to the tasks that the client
+# role delegates to the hub. The implicit localhost runs locally anyway.
 - name: Client
   hosts: localhost
-  connection: local
   gather_facts: false
   roles:
     - client

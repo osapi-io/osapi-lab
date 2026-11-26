@@ -88,6 +88,18 @@
   hosts: localhost
   gather_facts: false
   tasks:
+    # The remote agent's join and its NATS user belong to the hub's operator,
+    # which the teardown removed; nsc made the NATS auth before osapi did.
+    - name: Remove the remote agent's join, and what nsc made
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ lab_state }}/remote-agent"
+        - "{{ lab_state }}/config/agent-remote.yaml"
+        - "{{ lab_secrets_dir }}/nsc"
+        - "{{ lab_secrets_dir }}/resolver.conf"
+
     - name: Remove .lab
       when: lab_teardown_local | default(false) | bool
       ansible.builtin.file:

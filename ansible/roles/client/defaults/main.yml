@@ -1,5 +1,5 @@
 ---
-# The lab on the machine running Ansible: the config `osapi client ...` uses,
-# and the config a remote agent here uses. .envrc points OSAPI_OSAPIFILE at the
-# first.
+# The distro label of the remote agent, `just agent`.
 client_distro: macos
+# Where the remote agent keeps its keys and what its join gave it.
+client_remote_key_dir: "{{ lab_state }}/remote-agent/pki"
