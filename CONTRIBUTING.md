@@ -99,6 +99,7 @@ it.
 | Put a new build into the running processes      | `just bump`                        | hub and VMs  |
 | Bake each image again and replace each VM       | `just rebuild`                     | everything   |
 | Restart the processes, with no build            | `just restart`                     | hub and VMs  |
+| Stop processes and VMs, and start them again    | `just stop`, `just start`          | hub and VMs  |
 | Run this machine as an agent too                | `just agent`                       | this machine |
 | Remove the lab from the hub                     | `just teardown`                    | the hub      |
 
@@ -120,8 +121,9 @@ with no arguments lists all the recipes, not only these.
 
 ### Change one part of the lab
 
-`deploy`, `bump`, `rebuild` and `restart` each take targets. With no target, a
-recipe does its work on each part of the lab. A target limits it to that part:
+`deploy`, `bump`, `rebuild`, `restart`, `stop` and `start` each take targets.
+With no target, a recipe does its work on each part of the lab. A target limits
+it to that part:
 
 | Target       | The part                                    |
 | ------------ | ------------------------------------------- |
@@ -141,6 +143,8 @@ just deploy ui                  # builds darwin, restarts the controller only
 just bump ubuntu-1 fedora-1     # the new build into two VMs
 just rebuild debian-lts         # a new image and a new clone of debian-lts
 just restart nats               # restarts NATS, and waits for each agent
+just stop fedora-1              # stops the VM; launchd does not start it again
+just start fedora-1             # starts it again, and waits for its agent
 ```
 
 A run on a part changes only that part. A process on the hub restarts only when

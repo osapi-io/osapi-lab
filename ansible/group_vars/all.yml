@@ -30,7 +30,13 @@ lab_vms:
 #   bump     put the new binary into each running process; bake no image
 #   rebuild  bake each image again and replace each VM, also with no change
 #   restart  restart each process; no build and no copy
+#   stop     stop each process, and each VM, so that launchd does not start it
+#            again; nothing is removed
+#   start    start each process and VM that stop stopped
 lab_mode: deploy
+# The tasks of each service role that the mode runs: main brings it to the
+# checkout and restarts it as needed; stop and start only stop and start it.
+lab_entry: "{{ lab_mode if lab_mode in ['stop', 'start'] else 'main' }}"
 # A comma list of VM names, such as ubuntu-1,debian-lts. Empty is each VM.
 lab_only: ""
 lab_only_vms: "{{ lab_only.split(',') | map('trim') | select | list }}"

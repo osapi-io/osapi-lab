@@ -81,6 +81,16 @@ rebuild *targets:
 restart *targets:
     just _lab restart {{ targets }}
 
+# Stop processes and VMs, so that launchd does not start them again, such as `just stop jaeger` or `just stop fedora-1`
+[group('lab')]
+stop *targets:
+    just _lab stop {{ targets }}
+
+# Start what `just stop` stopped, such as `just start jaeger` or `just start fedora-1`
+[group('lab')]
+start *targets:
+    just _lab start {{ targets }}
+
 # Run playbooks/lab.yml in a mode on targets: nats, controller, ui (the
 # controller), jaeger, hub (the three), vms, client, or a VM's name. With no
 # target, each component and each VM. -e and -- arguments go to Ansible.

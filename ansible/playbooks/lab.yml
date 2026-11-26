@@ -25,10 +25,10 @@
     - name: Check the mode and the VMs of the run
       ansible.builtin.assert:
         that:
-          - lab_mode in ['deploy', 'bump', 'rebuild', 'restart']
+          - lab_mode in ['deploy', 'bump', 'rebuild', 'restart', 'stop', 'start']
           - lab_only_vms | reject('in', lab_vms | map(attribute='name')) | list | length == 0
         fail_msg: >-
-          lab_mode is one of deploy, bump, rebuild and restart, and each VM of
+          lab_mode is one of deploy, bump, rebuild, restart, stop and start, and each VM of
           lab_only is one of {{ lab_vms | map(attribute='name') | join(', ') }}.
           The run has {{ lab_mode }} and {{ lab_only_vms | join(', ') or 'each VM' }}.
         quiet: true
@@ -40,7 +40,7 @@
   tags: [always]
   roles:
     - role: build
-      when: lab_mode != 'restart'
+      when: lab_mode not in ['restart', 'stop', 'start']
 
 # The admin token is checked against the signing keys on each run, and signed
 # again when a key changed or it expires soon.
@@ -60,16 +60,45 @@
   gather_subset: [min]
   environment:
     PATH: "{{ lab_hub_path }}"
-  roles:
-    - role: hub_tls
+  tasks:
+    - name: Get the certificate
+      when: lab_entry == 'main'
+      ansible.builtin.include_role:
+        name: hub_tls
+        apply:
+          tags: [nats, controller, jaeger]
       tags: [nats, controller, jaeger]
-    - role: hub_host
+
+    - name: Prepare what NATS and the controller share
+      when: lab_entry == 'main'
+      ansible.builtin.include_role:
+        name: hub_host
+        apply:
+          tags: [nats, controller]
       tags: [nats, controller]
-    - role: nats_server
+
+    - name: NATS
+      ansible.builtin.include_role:
+        name: nats_server
+        tasks_from: "{{ lab_entry }}"
+        apply:
+          tags: [nats]
       tags: [nats]
-    - role: controller
+
+    - name: Controller
+      ansible.builtin.include_role:
+        name: controller
+        tasks_from: "{{ lab_entry }}"
+        apply:
+          tags: [controller]
       tags: [controller]
-    - role: jaeger
+
+    - name: Jaeger
+      ansible.builtin.include_role:
+        name: jaeger
+        tasks_from: "{{ lab_entry }}"
+        apply:
+          tags: [jaeger]
       tags: [jaeger]
 
 - name: Images and VMs
@@ -85,6 +114,18 @@
       ansible.builtin.include_role:
         name: lab_images
         tasks_from: current
+
+    - name: Stop or start each VM
+      when: lab_entry != 'main'
+      ansible.builtin.include_role:
+        name: tart_vm
+        tasks_from: "{{ lab_entry }}"
+      vars:
+        tart_vm_name: lab-{{ item.name }}
+        tart_vm_launchd_label: io.osapi.lab.vm.{{ item.name }}
+      loop: "{{ lab_targets }}"
+      loop_control:
+        label: "{{ item.name }}"
 
     - name: Bake the images
       when: lab_replace_vms | length > 0
@@ -143,7 +184,8 @@
   environment:
     PATH: "{{ lab_hub_path }}"
   roles:
-    - fleet_ready
+    - role: fleet_ready
+      when: lab_mode != 'stop'
 
 - name: The configs of this machine
   hosts: localhost

@@ -1,0 +1,9 @@
+---
+# Starts the controller on the hub, through its launchd agent. Its config
+# stays as main.yml left it.
+- name: Start the controller
+  ansible.builtin.include_role:
+    name: launchd
+    tasks_from: start
+  vars:
+    launchd_label: io.osapi.lab.controller

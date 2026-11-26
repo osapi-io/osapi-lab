@@ -1,0 +1,16 @@
+---
+# Stops the launchd agent launchd_label and unloads it, so KeepAlive does not
+# start it again. Its plist stays: start.yml loads it again.
+- name: Find the user's session for {{ launchd_label }}
+  ansible.builtin.command: id -u
+  register: launchd_uid
+  changed_when: false
+  check_mode: false
+
+- name: Stop {{ launchd_label }}
+  ansible.builtin.shell: |
+    launchctl print "gui/{{ launchd_uid.stdout }}/{{ launchd_label }}" >/dev/null 2>&1 || exit 0
+    launchctl bootout "gui/{{ launchd_uid.stdout }}/{{ launchd_label }}"
+    echo stopped
+  register: launchd_stopped
+  changed_when: "'stopped' in launchd_stopped.stdout"

@@ -1,0 +1,17 @@
+---
+# Loads and starts the launchd agent launchd_label from its plist, which
+# main.yml wrote. A loaded agent is left as it is.
+- name: Find the user's session for {{ launchd_label }}
+  ansible.builtin.shell: echo "$(id -u) $HOME"
+  register: launchd_who
+  changed_when: false
+  check_mode: false
+
+- name: Start {{ launchd_label }}
+  ansible.builtin.shell: |
+    domain="gui/{{ launchd_who.stdout.split()[0] }}"
+    launchctl print "$domain/{{ launchd_label }}" >/dev/null 2>&1 && exit 0
+    launchctl bootstrap "$domain" "{{ launchd_who.stdout.split()[1] }}/Library/LaunchAgents/{{ launchd_label }}.plist"
+    echo started
+  register: launchd_started
+  changed_when: "'started' in launchd_started.stdout"

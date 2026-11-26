@@ -1,0 +1,9 @@
+---
+# Starts the trace collector on the hub, through its launchd agent. Its config
+# stays as main.yml left it.
+- name: Start the trace collector
+  ansible.builtin.include_role:
+    name: launchd
+    tasks_from: start
+  vars:
+    launchd_label: "{{ jaeger_label }}"

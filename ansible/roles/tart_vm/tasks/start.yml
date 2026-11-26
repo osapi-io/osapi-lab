@@ -1,0 +1,9 @@
+---
+# Starts the VM tart_vm_name through its launchd agent. A stop
+# unloads the agent, so KeepAlive does not run the VM again; its disk stays.
+- name: Start {{ tart_vm_name }}
+  ansible.builtin.include_role:
+    name: launchd
+    tasks_from: start
+  vars:
+    launchd_label: "{{ tart_vm_launchd_label }}"
