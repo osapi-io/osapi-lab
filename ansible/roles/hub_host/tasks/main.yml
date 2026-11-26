@@ -25,6 +25,23 @@
     mode: "0755"
   register: hub_host_binary
 
+# The NATS operator, its accounts, the scoped signing keys of the join and a
+# credentials file for each osapi role, made one time on the hub. The keys
+# stay on the hub. A teardown removes them, and the next deploy makes new ones
+# and new VMs that join with them.
+- name: Make the NATS auth of the lab
+  ansible.builtin.command:
+    argv: "{{ lab_hub_cli[:1] + ['nats', 'auth', 'operator', 'create', '--out', lab_hub_nats_dir] }}"
+  args:
+    creates: "{{ lab_hub_nats_dir }}/resolver.conf"
+  register: hub_host_nats_auth
+
+- name: Read the public key of osapi's account
+  ansible.builtin.command: cat {{ lab_hub_nats_dir }}/account.pub
+  register: hub_host_nats_account
+  changed_when: false
+  check_mode: false
+
 - name: Render the hub's config
   ansible.builtin.template:
     src: hub.yaml.j2
@@ -32,6 +49,8 @@
     mode: "0600"
   vars:
     hub_state: "{{ lab_hub_state_abs }}"
+    hub_nats: "{{ lab_hub_nats_dir }}"
+    hub_nats_account: "{{ hub_host_nats_account.stdout | trim }}"
   register: hub_host_config
 
 - name: Let agents reach NATS through the firewall
@@ -47,3 +66,4 @@
   ansible.builtin.set_fact:
     hub_host_binary_changed: "{{ hub_host_binary is changed }}"
     hub_host_config_changed: "{{ hub_host_config is changed }}"
+    hub_host_nats_auth_changed: "{{ hub_host_nats_auth is changed }}"

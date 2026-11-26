@@ -88,17 +88,20 @@ lab_signing_keys:
   - id: lab
     key: "{{ lab_signing_key }}"
 
-# NATS runs in operator (decentralized JWT) mode, as a NATS someone already runs
-# would. nsc keeps the operator, its accounts and their keys here, and each NATS
-# user's credentials file, one per osapi process, goes in lab_nats_creds_dir.
-lab_nsc_dir: "{{ lab_secrets_dir }}/nsc"
+# NATS runs in operator (decentralized JWT) mode. The hub makes its operator,
+# its accounts and a credentials file for each osapi role with `osapi nats
+# auth operator create`, in lab_hub_nats_dir. An agent gets its own user at
+# its join; the controller mints it. lab_nats_creds_dir on this machine holds
+# the copy of a credential that a tool here uses, such as the nats CLI.
 lab_nats_creds_dir: "{{ lab_secrets_dir }}/nats"
-lab_nsc_env:
-  NSC_HOME: "{{ lab_nsc_dir }}/home"
-  NKEYS_PATH: "{{ lab_nsc_dir }}/keys"
-# The account osapi's users belong to, and its JWT once nsc has made it.
-lab_nats_account: osapi
-lab_nats_resolver: "{{ lab_secrets_dir }}/resolver.conf"
+lab_hub_nats_dir: "{{ lab_hub_state_abs }}/nats"
+# Where a VM reaches NATS in its join string: the gateway of tart's network,
+# in place of the tailnet name of the controller's join URL. The agent checks
+# the hub's certificate for its tailnet name.
+lab_vm_nats_url: tls://192.168.64.1:{{ lab_nats_port }}
+# How long a join token of an image admits its VM, which joins at its first
+# boot, minutes after the bake.
+lab_join_expires: 24h
 
 # Jaeger on the hub collects every process's traces: the controller, NATS and
 # each agent send OTLP over gRPC to the OTLP port, and the UI is on the UI port.

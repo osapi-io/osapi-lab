@@ -27,10 +27,11 @@ controller:
 {% endfor %}
   nats:
     port: {{ lab_nats_port }}
-    # Its own user in osapi's NATS account; osapi nats setup uses it too.
+    # The controller's user, from osapi nats auth operator create, with the
+    # least permissions of its role.
     auth:
       type: creds
-      creds_file: {{ hub_state }}/secrets/controller.creds
+      creds_file: {{ hub_nats }}/controller.creds
     # The server's certificate names the hub's Tailscale name, not localhost.
     tls:
       enabled: true
@@ -40,12 +41,24 @@ controller:
     host: 127.0.0.1
   pki:
     key_dir: {{ hub_state }}/pki
-    # Each push clones the VMs again, and they ask to join again.
-    auto_admit: true
+    # A VM joins with the token in its image, which admits it, as a host of an
+    # operator does. A request with no token waits for a person.
+    auto_admit: false
     # A VM that is cloned again is deleted from admission first (lab_vm). This
     # deletes one that went away some other way, such as by hand, when it has
     # not reported for a day.
     delete_after: 24h
+  # The join. join token create reads the certificate of NATS at this URL,
+  # the tailnet name, which the hub reaches also when no VM runs; lab_images
+  # puts the gateway of tart's network in each VM's join string. The
+  # controller mints each agent's user with the scoped signing keys that
+  # osapi nats auth operator create made.
+  join:
+    url: {{ lab_nats_url }}
+    scoped: true
+    signing_key_file: {{ hub_nats }}/agent-signing.nk
+    join_signing_key_file: {{ hub_nats }}/join-signing.nk
+    account: {{ hub_nats_account }}
   # The vault of the secrets, with its key in the hub's state, not in
   # /etc/osapi. The controller makes the key at its first start.
   secrets:
@@ -74,10 +87,11 @@ nats:
       key_file: {{ hub_state }}/secrets/jetstream.key
     auth:
       type: operator
-      # The operator, the system account and each account's JWT, from nsc.
-      resolver_file: {{ hub_state }}/config/resolver.conf
-      # The server's own user, which its setup and heartbeat connect as.
-      creds_file: {{ hub_state }}/secrets/nats.creds
+      # The operator, the system account and osapi's account, from osapi nats
+      # auth operator create.
+      resolver_file: {{ hub_nats }}/resolver.conf
+      # The setup user, which the server's setup and heartbeat connect as.
+      creds_file: {{ hub_nats }}/setup.creds
     metrics:
       host: 127.0.0.1
   kv:

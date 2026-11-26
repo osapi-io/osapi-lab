@@ -33,8 +33,6 @@ mise install
 - **[just].** The task runner. Use it to build, test and format.
 - **[Packer].** It builds the Tart images of the VMs. `just test` checks the
   format of the templates.
-- **[nsc].** The NATS of the lab runs in operator (JWT) mode. `nsc` makes its
-  operator, its accounts and its users.
 - **[nats CLI].** It examines the NATS of the lab. `.envrc` gives it the address
   of the NATS of the lab, and its credentials.
 
@@ -86,23 +84,22 @@ it.
 
 ### Day to day
 
-| You want to                                     | Run                                | Changes      |
-| ----------------------------------------------- | ---------------------------------- | ------------ |
-| See every VM, its image and its osapi build     | `just list`                        | nothing      |
-| Read the logs of the hub                        | `just logs`                        | nothing      |
-| Send a request to the lab                       | `osapi client agent list`          | nothing      |
-| Examine the NATS of the lab, as its `cli` user  | `nats stream ls`, `nats kv ls`     | nothing      |
-| Examine the NATS server, as `sys`               | `nats-sys server report jetstream` | nothing      |
-| Open a shell on a VM                            | `just ssh ubuntu-1`                | nothing      |
-| See the trace of a request, controller to agent | `http://<lab_hub_addr>:16686`      | nothing      |
-| Bring the lab to your checkout                  | `just deploy`                      | hub and VMs  |
-| Put a new build into the running processes      | `just bump`                        | hub and VMs  |
-| Bake each image again and replace each VM       | `just rebuild`                     | everything   |
-| Restart the processes, with no build            | `just restart`                     | hub and VMs  |
-| Stop processes and VMs, and start them again    | `just stop`, `just start`          | hub and VMs  |
-| Run osapi's integration suite on each VM        | `just int`, `just int ubuntu-1`    | the VMs      |
-| Run this machine as an agent too                | `just agent`                       | this machine |
-| Remove the lab from the hub                     | `just teardown`                    | the hub      |
+| You want to                                     | Run                             | Changes      |
+| ----------------------------------------------- | ------------------------------- | ------------ |
+| See every VM, its image and its osapi build     | `just list`                     | nothing      |
+| Read the logs of the hub                        | `just logs`                     | nothing      |
+| Send a request to the lab                       | `osapi client agent list`       | nothing      |
+| Examine the NATS of the lab, as the controller  | `nats stream ls`, `nats kv ls`  | nothing      |
+| Open a shell on a VM                            | `just ssh ubuntu-1`             | nothing      |
+| See the trace of a request, controller to agent | `http://<lab_hub_addr>:16686`   | nothing      |
+| Bring the lab to your checkout                  | `just deploy`                   | hub and VMs  |
+| Put a new build into the running processes      | `just bump`                     | hub and VMs  |
+| Bake each image again and replace each VM       | `just rebuild`                  | everything   |
+| Restart the processes, with no build            | `just restart`                  | hub and VMs  |
+| Stop processes and VMs, and start them again    | `just stop`, `just start`       | hub and VMs  |
+| Run osapi's integration suite on each VM        | `just int`, `just int ubuntu-1` | the VMs      |
+| Run this machine as an agent too                | `just agent`                    | this machine |
+| Remove the lab from the hub                     | `just teardown`                 | the hub      |
 
 Do not keep work inside a VM. A VM is its image: `deploy` replaces a VM with a
 clone of its new image when your osapi checkout or `packer/` changed, and
@@ -210,9 +207,10 @@ one image for each VM with the provisioners of Packer: `file` copies each file
 in, and `shell` runs short `inline` steps. `templatefile()` renders the config
 of the agent from `packer/agent.yaml.pkrtpl.hcl`. A difference between
 distributions is a map in `locals`, not a `case` in a script. Ansible makes only
-what must exist outside the image, the NATS user of each VM, and passes its
-credential to the build in `PKR_VAR_nats_creds`. Then it clones the VMs. Nothing
-logs in to a running VM to change it.
+what must exist outside the image, a join token for each VM, and passes its join
+string to the build in `PKR_VAR_join`. Then it clones the VMs. Each VM joins at
+its first boot, as a host of an operator does. Nothing logs in to a running VM
+to change it.
 
 **Pull a base image if you can.** The images of Ubuntu, Debian and Fedora start
 from the Tart images of Cirrus Labs. Cirrus Labs publishes no openSUSE image.
@@ -354,6 +352,5 @@ Open a [Discussion] on GitHub.
 [mdformat]: https://pypi.org/project/mdformat/
 [mise]: https://mise.jdx.dev
 [nats cli]: https://github.com/nats-io/natscli
-[nsc]: https://github.com/nats-io/nsc
 [packer]: https://developer.hashicorp.com/packer
 [uv]: https://docs.astral.sh/uv/

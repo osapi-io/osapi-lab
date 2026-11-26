@@ -187,9 +187,10 @@
     - role: fleet_ready
       when: lab_mode != 'stop'
 
+# No connection: local here: it would also apply to the tasks that the client
+# role delegates to the hub. The implicit localhost runs locally anyway.
 - name: The configs of this machine
   hosts: localhost
-  connection: local
   gather_facts: false
   tags: [client, vms]
   roles:

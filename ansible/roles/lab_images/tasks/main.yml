@@ -84,15 +84,20 @@
     src: "{{ lab_state }}/bin/osapi-linux-arm64"
     dest: "{{ lab_hub_state_abs }}/bin/osapi-linux-arm64"
     mode: "0755"
-- name: Make the NATS user of each VM
-  ansible.builtin.include_role:
-    name: secrets
-    tasks_from: user
-  vars:
-    secrets_nats_user: "agent-{{ item.name }}"
+# Each image bakes a join token that admits one agent, its VM, with the
+# distro as a label: the VM joins at its first boot, minutes after the bake.
+- name: Make the join token of each VM
+  ansible.builtin.command:
+    argv: >-
+      {{ lab_hub_cli + ['controller', 'join', 'token', 'create', '--expires', lab_join_expires,
+                        '--uses', '1', '--labels', 'distro=' ~ item.image, '--json'] }}
   loop: "{{ lab_images_wanted }}"
   loop_control:
     label: "{{ item.name }}"
+  register: lab_images_join
+  changed_when: true
+  no_log: true
+
 - name: Delete the images being rebuilt
   ansible.builtin.command: tart delete img-{{ item.name }}-{{ lab_build_tag }}
   loop: "{{ lab_images_wanted }}"
@@ -130,10 +135,12 @@
       nats_port: "{{ lab_nats_port }}"
       tracing_port: "{{ lab_tracing_otlp_port }}"
       hub_name: "{{ lab_hub_addr }}"
-    # The credential goes in the environment, so it is in no argument
-    # list on the hub and no log of this run.
+    # The join string goes in the environment, so it is in no argument list
+    # on the hub and no log of this run.
     packer_env:
-      PKR_VAR_nats_creds: "{{ lookup('ansible.builtin.file', lab_nats_creds_dir ~ '/agent-' ~ item.name ~ '.creds') }}"
+      PKR_VAR_join: >-
+        {{ ((lab_images_join.results | selectattr('item.name', 'equalto', item.name) | first).stdout
+            | from_json)['join'] | regex_replace('^tls://[^:/?]+:[0-9]+', lab_vm_nats_url) }}
   loop: "{{ lab_images_wanted }}"
   loop_control:
     label: "{{ item.name }}"

@@ -1,22 +1,8 @@
 ---
 # osapi's controller on the hub, which serves the API and the UI, under
-# launchd. It restarts when its binary, the config, the certificate or its
-# credentials changed, or in a restart. A deploy of the UI is a deploy of the
+# launchd. It restarts when its binary, the config, the certificate or the
+# NATS auth changed, or in a restart. A deploy of the UI is a deploy of the
 # controller, because osapi embeds the UI. hub_host runs first.
-
-- name: Make the NATS user of the controller
-  ansible.builtin.include_role:
-    name: secrets
-    tasks_from: user
-  vars:
-    secrets_nats_user: controller
-
-- name: Copy the controller's NATS credentials
-  ansible.builtin.copy:
-    src: "{{ lab_nats_creds_dir }}/controller.creds"
-    dest: "{{ lab_hub_state_abs }}/secrets/controller.creds"
-    mode: "0600"
-  register: controller_creds
 
 - name: Run the controller under launchd
   ansible.builtin.include_role:
@@ -29,7 +15,7 @@
     launchd_restart: >-
       {{ lab_mode == 'restart'
          or hub_host_binary_changed | default(false) or hub_host_config_changed | default(false)
-         or hub_tls_changed | default(false) or controller_creds is changed }}
+         or hub_tls_changed | default(false) or hub_host_nats_auth_changed | default(false) }}
 
 # The controller answers once it reads its config and binds its port. A run
 # that goes on to the agents asks it about them.

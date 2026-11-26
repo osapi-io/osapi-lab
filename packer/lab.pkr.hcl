@@ -7,11 +7,13 @@ packer {
   }
 }
 
-# One image is the whole of one VM: the osapi build, its config, its NATS
-# credential, its hostname and each package that the lab needs. Nothing
-# configures a VM after it boots. ansible/playbooks/images.yml runs one build
-# for each VM of the inventory and passes each variable; the NATS credential
-# comes in PKR_VAR_nats_creds, so it is in no argument list and no log.
+# One image is the whole of one VM: the osapi build, its config with a join
+# string, its hostname and each package that the lab needs. The agent joins at
+# its first boot, as a host of an operator does: the token admits it, and the
+# controller gives it its NATS user. Nothing configures a VM after it boots.
+# The lab_images role of ansible/ runs one build for each VM and passes each
+# variable; the join string comes in PKR_VAR_join, so it is in no argument
+# list and no log.
 
 variable "vm" {
   type        = string
@@ -53,10 +55,10 @@ variable "ssh_pubkey" {
   description = "The lab's SSH public key, so `just ssh` reaches the VM."
 }
 
-variable "nats_creds" {
+variable "join" {
   type        = string
   sensitive   = true
-  description = "The VM's own NATS credential, from the lab's nsc account."
+  description = "The VM's join string: a token that admits one agent, the NATS server and its pinned certificate."
 }
 
 variable "nats_host" {
@@ -134,7 +136,7 @@ locals {
     nats_port    = var.nats_port
     tracing_port = var.tracing_port
     hub_name     = var.hub_name
-    creds_file   = "/etc/osapi/nats.creds"
+    join         = var.join
   })
 }
 
@@ -172,11 +174,6 @@ build {
   provisioner "file" {
     content     = local.agent_config
     destination = "/tmp/lab/osapi.yaml"
-  }
-
-  provisioner "file" {
-    content     = var.nats_creds
-    destination = "/tmp/lab/nats.creds"
   }
 
   provisioner "file" {
@@ -220,7 +217,6 @@ build {
         "install -d -m 0755 /etc/osapi /var/lib/osapi /etc/osapi-lab",
         "install -m 0755 /tmp/lab/osapi /usr/local/bin/osapi",
         "install -m 0600 /tmp/lab/osapi.yaml /etc/osapi/osapi.yaml",
-        "install -m 0600 /tmp/lab/nats.creds /etc/osapi/nats.creds",
         "install -m 0644 /tmp/lab/image /etc/osapi-lab/image",
         "install -m 0644 /tmp/lab/osapi-agent.service /etc/systemd/system/osapi-agent.service",
         # A config that osapi refuses fails the build, not the boot of a VM.

@@ -1,29 +1,17 @@
-# {{ ansible_managed }}
-# A remote agent: one that runs on this machine, outside the lab VMs. Each lab
-# VM has its config baked into its image, from packer/agent.yaml.pkrtpl.hcl.
-# Each key that is not here has its default.
-
+# The config of the remote agent, `just agent`: this machine as one of the
+# lab's agents. It joins at its first start with the join string, and keeps
+# its keys and its NATS user in agent.pki.key_dir. Later starts use those.
 agent:
-{% if agent_node %}
-  hostname: {{ agent_node }}
-{% endif %}
+  join: {{ agent_join }}
   labels:
     distro: {{ agent_distro }}
-  nats:
-    host: {{ agent_nats_host }}
-    port: {{ lab_nats_port }}
-    # Its own user in osapi's NATS account: adding a host is issuing it
-    # credentials, with no change on the server.
-    auth:
-      type: creds
-      creds_file: {{ agent_creds_file | default('/etc/osapi/nats.creds') }}
-    tls:
-      enabled: true
+  pki:
+    key_dir: {{ agent_key_dir }}
 
 telemetry:
   tracing:
     enabled: true
     exporter: otlp
-    otlp_endpoint: {{ agent_nats_host }}:{{ lab_tracing_otlp_port }}
+    otlp_endpoint: {{ lab_hub_addr }}:{{ lab_tracing_otlp_port }}
     tls:
       enabled: true

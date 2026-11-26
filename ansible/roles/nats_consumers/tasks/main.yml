@@ -1,13 +1,14 @@
 ---
-# Removes the jobs consumers of agents that no longer run, and checks that each
-# running agent has its consumers (osapi-io/osapi-lab#45).
+# Checks that each running agent has its consumers on the jobs stream
+# (osapi-io/osapi-lab#45).
 #
 # Each agent makes durable consumers on the jobs stream, and each name ends with
 # `_<machine id>`. A deploy replaces VMs, and each new VM is a new machine ID,
 # so the consumers of the old VMs stay. On 23 November 2026 the stream held
 # 1000, the account limit; the new agents could not make theirs, and each job
-# failed. osapi-io/osapi#1154 makes NATS remove an idle consumer by itself.
-# This step is the lab's own guard, also for an older osapi build.
+# failed. osapi-io/osapi#1154 makes NATS remove an idle consumer by itself, so
+# the lab removes none: its nats CLI connects as the controller's user, which
+# may list the consumers and not delete them.
 # Runs on the machine running Ansible, with the nats CLI as the cli user.
 
 - name: List the running agents
@@ -24,22 +25,9 @@
   changed_when: false
   check_mode: false
 
-- name: Find the consumers of agents that no longer run
+- name: Read the machine IDs of the running agents
   ansible.builtin.set_fact:
     nats_consumers_ids: "{{ (nats_consumers_agents.stdout | from_json)['items'] | map(attribute='machine_id') | select | list }}"
-    nats_consumers_stale: >-
-      {{ nats_consumers_list.stdout_lines | map('trim') | select
-         | select('search', '_[0-9a-f]{32}$')
-         | reject('search', '_(' ~ ((nats_consumers_agents.stdout | from_json)['items'] | map(attribute='machine_id') | select | join('|')) ~ ')$')
-         | list }}
-
-- name: Remove the consumers of agents that no longer run
-  ansible.builtin.command:
-    argv: [nats, consumer, rm, "{{ nats_consumers_stream }}", "{{ item }}", -f]
-  loop: "{{ nats_consumers_stale }}"
-  # With no agent listed, each consumer would look stale. Remove none then.
-  when: nats_consumers_ids | length > 0
-  changed_when: true
 
 - name: Check that each running agent has its consumers
   ansible.builtin.assert:
@@ -50,7 +38,3 @@
       gets no jobs. Look at its log for a consumer error, such as the stream's consumer limit.
     quiet: true
   loop: "{{ nats_consumers_ids }}"
-
-- name: Say what changed
-  ansible.builtin.debug:
-    msg: "Removed {{ nats_consumers_stale | length }} stale consumers; {{ nats_consumers_ids | length }} agents have theirs."
