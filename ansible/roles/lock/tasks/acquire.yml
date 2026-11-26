@@ -40,6 +40,26 @@
   ansible.builtin.set_fact:
     lock_holder: "{{ lock_self.stdout }}"
 
+# A run makes the lock directory, then writes its holder. A run that died
+# between the two leaves a directory with no holder, which no run could take
+# again. A run that only now made it writes its holder within seconds: the
+# wait is for that run.
+- name: Break a lock that has no holder
+  ansible.builtin.shell: |
+    set -u
+    [ -d {{ lock_dir | quote }} ] || exit 0
+    for _ in 1 2 3 4 5 6 7 8 9 10 11 12; do
+      [ -f {{ lock_dir | quote }}/holder ] && exit 0
+      sleep 5
+    done
+    rm -rf {{ lock_dir | quote }}
+    echo broken
+  args:
+    executable: /bin/bash
+  register: lock_no_holder
+  changed_when: "'broken' in lock_no_holder.stdout"
+  check_mode: false
+
 - name: Read the lock
   ansible.builtin.command: cat {{ lock_dir }}/holder
   register: lock_current

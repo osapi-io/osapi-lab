@@ -111,7 +111,7 @@ _lab mode *targets:
     args=(-e lab_mode={{ mode }})
     if [ ${#vms[@]} -gt 0 ]; then args+=(-e "lab_only=$(IFS=,; echo "${vms[*]}")"); fi
     if [ ${#tags[@]} -gt 0 ]; then args+=(--tags "$(IFS=,; echo "${tags[*]}")"); fi
-    just ansible-run lab "${args[@]}" "${extra[@]}"
+    just ansible-run lab "${args[@]}" ${extra[@]+"${extra[@]}"}
 
 # Run osapi's integration suite against each VM of the lab, or the VMs named, such as `just int ubuntu-1 fedora-1`, with the write tests that CI runs; run it in a lab-session. LAB_OSAPI names the osapi checkout (../osapi)
 [group('lab')]

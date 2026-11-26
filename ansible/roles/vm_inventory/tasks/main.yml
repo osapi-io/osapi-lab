@@ -4,8 +4,12 @@
 # that upgrades in place also in vms_in_place, and a VM that the run gives a
 # new binary or restarts also in vms_update or vms_restart. Runs on the hub.
 
+# A VM of the run that just started gets its address in some seconds: the run
+# waits for it. Each other VM is running or not, and gets no wait.
 - name: Find each running VM's address
-  ansible.builtin.command: tart ip lab-{{ item.name }}
+  ansible.builtin.command: >-
+    tart ip lab-{{ item.name }}
+    --wait {{ 60 if item.name in (lab_targets | map(attribute='name')) and lab_mode == 'start' else 0 }}
   loop: "{{ lab_vms }}"
   loop_control:
     label: "{{ item.name }}"
@@ -33,3 +37,17 @@
     label: "{{ item.item.name }}"
   when: item.rc == 0 and item.stdout | length > 0
   changed_when: false
+
+- name: Refuse a run on a VM that is not running
+  vars:
+    vm_inventory_missing: >-
+      {{ vm_inventory_ips.results | rejectattr('rc', 'equalto', 0)
+         | map(attribute='item.name')
+         | select('in', (lab_update_vms + lab_restart_vms) | map(attribute='name'))
+         | list }}
+  ansible.builtin.assert:
+    that: vm_inventory_missing | length == 0
+    fail_msg: >-
+      {{ vm_inventory_missing | join(', ') }} is not running, so the run cannot
+      reach it. Run `just start {{ vm_inventory_missing | join(' ') }}` first.
+    quiet: true
