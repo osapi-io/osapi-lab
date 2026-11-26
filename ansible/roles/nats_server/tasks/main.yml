@@ -5,7 +5,7 @@
 
 - name: Make the JetStream encryption key
   ansible.builtin.command:
-    argv: "{{ lab_hub_cli + ['nats', 'key', 'create'] }}"
+    argv: "{{ lab_hub_cli + ['pki', 'key', 'create', '--name', 'jetstream'] }}"
   args:
     creates: "{{ lab_hub_state_abs }}/secrets/jetstream.key"
 

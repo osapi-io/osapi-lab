@@ -84,7 +84,7 @@ nats:
       cert_file: {{ hub_state }}/tls/api.crt
       key_file: {{ hub_state }}/tls/api.key
     # Each stream and bucket in store_dir is encrypted with this key. The hub
-    # role makes it with osapi nats key create, one time.
+    # role makes it with osapi pki key create --name jetstream, one time.
     jetstream:
       key_file: {{ hub_state }}/secrets/jetstream.key
     auth:
