@@ -1,0 +1,35 @@
+---
+# Finds each VM of lab_vms that runs on the hub, and adds it to the inventory,
+# reached over SSH through the hub. Each running VM is in the group vms, a VM
+# that upgrades in place also in vms_in_place, and a VM that the run gives a
+# new binary or restarts also in vms_update or vms_restart. Runs on the hub.
+
+- name: Find each running VM's address
+  ansible.builtin.command: tart ip lab-{{ item.name }}
+  loop: "{{ lab_vms }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: vm_inventory_ips
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Add the running VMs to the inventory
+  ansible.builtin.add_host:
+    name: "{{ item.item.name }}"
+    groups: >-
+      {{ ['vms']
+         + (['vms_in_place'] if item.item.name in lab_in_place else [])
+         + (['vms_update'] if item.item.name in (lab_update_vms | map(attribute='name')) else [])
+         + (['vms_restart'] if item.item.name in (lab_restart_vms | map(attribute='name')) else []) }}
+    ansible_host: "{{ item.stdout }}"
+    ansible_user: "{{ lab_vm_user }}"
+    ansible_ssh_private_key_file: "{{ lab_ssh_key }}"
+    ansible_ssh_common_args: >-
+      -o ProxyJump={{ (ansible_user ~ '@') if ansible_user is defined else '' }}{{ ansible_host }}
+      -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5
+  loop: "{{ vm_inventory_ips.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when: item.rc == 0 and item.stdout | length > 0
+  changed_when: false

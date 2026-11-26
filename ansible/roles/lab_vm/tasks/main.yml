@@ -13,16 +13,14 @@
     lab_vm_wanted: "img-{{ lab_vm_entry.name }}-{{ lab_build_tag }} {{ lab_vm_image_fingerprint.stdout | default('') }}"
 
 - name: Check there is a tagged image to clone
-  when: lab_vm_tasks == 'main'
   ansible.builtin.assert:
     that: lab_build_tag | length > 0
-    fail_msg: No tagged build in .lab/bin to clone from. Run `just build images` first.
+    fail_msg: No tagged build in .lab/bin to clone from. Run `just deploy`.
     quiet: true
 
 # What the VM should be cloned from: the image and the source fingerprint. The
 # hub records what it was cloned from; a VM that differs is recloned.
 - name: Read what the VM was cloned from {{ lab_vm_entry.name }}
-  when: lab_vm_tasks == 'main'
   ansible.builtin.command: cat {{ lab_hub_state_abs }}/vms/{{ lab_vm_entry.name }}.source
   register: lab_vm_source
   changed_when: false
@@ -31,7 +29,6 @@
 
 # The VM's launchd agent logs here, so it exists before the agent does.
 - name: Create the hub's log directory
-  when: lab_vm_tasks == 'main'
   ansible.builtin.file:
     path: "{{ lab_hub_state_abs }}/log"
     state: directory
@@ -51,9 +48,9 @@
   ansible.builtin.set_fact:
     lab_vm_reclone: >-
       {{ (lab_vm_recreate | bool)
-         or (lab_vm_tasks == 'main' and lab_vm_in_place | bool
+         or (lab_vm_in_place | bool
              and ('lab-' ~ lab_vm_entry.name) not in lab_vm_list.stdout_lines)
-         or (lab_vm_tasks == 'main' and not (lab_vm_in_place | bool)
+         or (not (lab_vm_in_place | bool)
              and (lab_vm_source.stdout | default('')) != lab_vm_wanted) }}
 
 # A VM that is cloned again has a new machine ID, and asks to join as a new
@@ -66,14 +63,7 @@
   block:
     - name: List the admission records of {{ lab_vm_entry.name }}
       ansible.builtin.command:
-        argv:
-          - "{{ lab_hub_state_abs }}/bin/osapi-darwin-arm64"
-          - -f
-          - "{{ lab_hub_state_abs }}/config/hub.yaml"
-          - client
-          - admission
-          - list
-          - --json
+        argv: "{{ lab_hub_cli + ['client', 'admission', 'list', '--json'] }}"
       register: lab_vm_admission
       changed_when: false
       failed_when: false
@@ -82,15 +72,7 @@
     - name: Delete each machine of {{ lab_vm_entry.name }}
       when: lab_vm_admission.rc == 0
       ansible.builtin.command:
-        argv:
-          - "{{ lab_hub_state_abs }}/bin/osapi-darwin-arm64"
-          - -f
-          - "{{ lab_hub_state_abs }}/config/hub.yaml"
-          - client
-          - admission
-          - delete
-          - --machine-id
-          - "{{ lab_vm_machine.machine_id }}"
+        argv: "{{ lab_hub_cli + ['client', 'admission', 'delete', '--machine-id', lab_vm_machine.machine_id] }}"
       loop: >-
         {{ ((lab_vm_admission.stdout | from_json)['items'] | default([]))
            | selectattr('hostname', 'equalto', lab_vm_entry.name) | list }}
@@ -102,7 +84,6 @@
 - name: Run tart_vm for {{ lab_vm_entry.name }}
   ansible.builtin.include_role:
     name: tart_vm
-    tasks_from: "{{ lab_vm_tasks }}"
   vars:
     tart_vm_name: "lab-{{ lab_vm_entry.name }}"
     tart_vm_source: "img-{{ lab_vm_entry.name }}-{{ lab_build_tag }}"
@@ -120,7 +101,7 @@
 
 # A VM that upgrades in place keeps the record of its first clone.
 - name: Record what the VM was cloned from {{ lab_vm_entry.name }}
-  when: lab_vm_tasks == 'main' and (lab_vm_reclone | bool or not (lab_vm_in_place | bool))
+  when: (lab_vm_reclone | bool or not (lab_vm_in_place | bool))
   block:
     - name: Create the VM records directory
       ansible.builtin.file:

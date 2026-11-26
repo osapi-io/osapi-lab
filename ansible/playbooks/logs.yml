@@ -1,12 +1,15 @@
 ---
-# The hub's recent NATS and controller logs. Changes nothing.
+# The hub's recent logs: nats and controller, or the components that
+# lab_logs names, such as jaeger or vm-ubuntu-1. Changes nothing.
 - name: Logs
   hosts: hub
   gather_facts: false
+  vars:
+    lab_logs: nats,controller
   tasks:
     - name: Read the last lines of each log
       ansible.builtin.command: tail -n {{ lab_log_lines | default(40) }} {{ lab_hub_state }}/log/{{ item }}.log
-      loop: [nats, controller]
+      loop: "{{ lab_logs.split(',') | map('trim') | select | list }}"
       register: logs_out
       changed_when: false
       check_mode: false

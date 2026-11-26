@@ -1,0 +1,4 @@
+---
+# Whether the run gives this VM's agent a new binary, or restarts it.
+lab_agent_update: "{{ inventory_hostname in groups['vms_update'] | default([]) }}"
+lab_agent_restart: "{{ inventory_hostname in groups['vms_restart'] | default([]) }}"

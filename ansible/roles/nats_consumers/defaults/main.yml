@@ -1,0 +1,3 @@
+---
+# The stream whose consumers the agents bind.
+nats_consumers_stream: osapi-JOBS

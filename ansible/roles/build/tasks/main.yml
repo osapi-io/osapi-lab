@@ -1,11 +1,12 @@
 ---
 # Compiles the osapi checkout at lab_osapi_dir, on the machine running Ansible,
-# for the hub and remote agents (darwin) and the VMs (linux). Whatever branch it
-# is on, uncommitted changes included.
+# for each OS of build_os: darwin for this machine and the hub, linux for the
+# VMs. Whatever branch it is on, uncommitted changes included.
 #
-# Skipped when the checkout has not changed since the last build: the commit,
-# the uncommitted diff and the untracked files are fingerprinted, and the
-# fingerprint is kept beside the binaries. -e build_force=true rebuilds anyway.
+# An OS is skipped when the checkout has not changed since it was built: the
+# commit, the uncommitted diff and the untracked files are fingerprinted, and
+# each OS keeps the fingerprint of its build in <os>.FINGERPRINT beside the
+# binaries. -e build_force=true builds anyway.
 
 - name: Resolve the checkout
   ansible.builtin.set_fact:
@@ -49,22 +50,25 @@
 - name: Check for the binaries
   ansible.builtin.stat:
     path: "{{ build_bin }}/osapi-{{ item }}-arm64"
-  loop: [darwin, linux]
+  loop: "{{ build_os }}"
   register: build_binaries
 
-- name: Decide whether to build
+# An OS is built when its binary is missing, or when the source changed since
+# it was built: each OS keeps the fingerprint of the source it was built from.
+- name: Choose the OSes to build
   ansible.builtin.set_fact:
     build_needed: >-
-      {{ (build_force | default(false) | bool)
-         or (build_binaries.results | rejectattr('stat.exists') | list | length > 0)
-         or (lookup('ansible.builtin.file', build_bin ~ '/FINGERPRINT', errors='ignore') | default('', true))
-            != build_rev.stdout_lines[2] }}
+      {%- set out = [] -%}
+      {%- for r in build_binaries.results -%}
+        {%- set built = lookup('ansible.builtin.file', build_bin ~ '/' ~ r.item ~ '.FINGERPRINT', errors='ignore') | default('', true) -%}
+        {%- if (build_force | bool) or not r.stat.exists or built != build_rev.stdout_lines[2] -%}
+          {%- set _ = out.append(r.item) -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {{ out }}
 
-# osapi embeds ui/dist, so the UI is built first. fetch brings in the shared
-# react recipes, which a fresh checkout does not have. mise supplies the
-# checkout's own toolchain.
 - name: Build the UI
-  when: build_needed | bool
+  when: build_needed | length > 0
   ansible.builtin.shell:
     cmd: |
       mise trust -q .
@@ -73,11 +77,9 @@
     chdir: "{{ build_dir }}"
   changed_when: true
 
-# Each binary is built under a new name and moved over the old one: macOS kills
-# a signed binary whose bytes change in place, and a remote agent may be running
-# the darwin one.
+# go build writes beside the target and renames it, so a binary that runs from
+# .lab/bin keeps its own inode.
 - name: Compile osapi
-  when: build_needed | bool
   ansible.builtin.shell:
     cmd: |
       mise exec -- go build -o "{{ build_bin }}/osapi-{{ item }}-arm64.new" .
@@ -87,22 +89,22 @@
     CGO_ENABLED: "0"
     GOOS: "{{ item }}"
     GOARCH: arm64
-  loop: [darwin, linux]
+  loop: "{{ build_needed }}"
   changed_when: true
 
-# Written last, so a build that fails part way leaves the old fingerprint and
-# the next run builds again.
-- name: Record what was built
+- name: Record what was built for each OS
   ansible.builtin.copy:
-    dest: "{{ build_bin }}/{{ item.file }}"
-    content: "{{ item.value }}\n"
+    dest: "{{ build_bin }}/{{ item.0 }}.{{ item.1.file }}"
+    content: "{{ item.1.value }}\n"
     mode: "0644"
-  loop:
-    - { file: REVISION, value: "{{ build_rev.stdout_lines[0] }}" }
-    - { file: TAG, value: "{{ build_rev.stdout_lines[1] }}" }
-    - { file: FINGERPRINT, value: "{{ build_rev.stdout_lines[2] }}" }
+  loop: "{{ build_needed | product(build_records) | list }}"
   loop_control:
-    label: "{{ item.file }}"
+    label: "{{ item.0 }}.{{ item.1.file }}"
+  vars:
+    build_records:
+      - { file: REVISION, value: "{{ build_rev.stdout_lines[0] }}" }
+      - { file: TAG, value: "{{ build_rev.stdout_lines[1] }}" }
+      - { file: FINGERPRINT, value: "{{ build_rev.stdout_lines[2] }}" }
 
 - name: Link osapi to the darwin build
   ansible.builtin.file:
@@ -114,5 +116,5 @@
 - name: Say what was built
   ansible.builtin.debug:
     msg: >-
-      {{ 'built' if (build_needed | bool) else 'already built' }}
+      {{ ('built ' ~ (build_needed | join(' and '))) if build_needed else 'already built' }}:
       {{ build_rev.stdout_lines[0] }}, images tagged {{ build_rev.stdout_lines[1] }}

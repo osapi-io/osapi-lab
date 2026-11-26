@@ -1,0 +1,22 @@
+---
+# Refuses a bump when packer/ changed since the images were baked: a bump
+# copies only the osapi binary, so a change to a VM's config or packages needs a
+# deploy. images record the checksum in images/packer.sum on the hub.
+
+- name: Fingerprint the packer directory
+  ansible.builtin.include_tasks: fingerprint.yml
+
+- name: Read the packer directory that the images are baked from
+  ansible.builtin.command: cat {{ lab_hub_state_abs }}/images/packer.sum
+  register: lab_images_baked_sum
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Refuse a bump when the packer directory changed
+  ansible.builtin.assert:
+    that: lab_images_baked_sum.rc == 0 and lab_images_baked_sum.stdout == lab_images_packer_sum.stdout
+    fail_msg: >-
+      packer/ changed since the images were baked, or the hub has no record of
+      it. A bump copies only the osapi binary. Run `just deploy`.
+    quiet: true

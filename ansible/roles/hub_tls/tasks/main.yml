@@ -1,0 +1,39 @@
+---
+# The hub's Tailscale certificate, which the API, NATS and Jaeger serve. Each
+# connection to them checks it against the tailnet name. hub_tls_changed tells
+# each process to restart when Tailscale renewed it.
+
+- name: Create the certificate's directory
+  ansible.builtin.file:
+    path: "{{ lab_hub_state_abs }}/tls"
+    state: directory
+    mode: "0700"
+
+- name: Read the certificate before Tailscale renews it
+  ansible.builtin.stat:
+    path: "{{ lab_hub_state_abs }}/tls/api.crt"
+    checksum_algorithm: sha256
+  register: hub_tls_before
+
+# tailscale cert writes the certificate again only when it nears its expiry.
+- name: Get the hub's Tailscale certificate
+  ansible.builtin.command:
+    argv:
+      - "{{ lab_tailscale_cli }}"
+      - cert
+      - --cert-file
+      - "{{ lab_hub_state_abs }}/tls/api.crt"
+      - --key-file
+      - "{{ lab_hub_state_abs }}/tls/api.key"
+      - "{{ lab_hub_addr }}"
+  changed_when: false
+
+- name: Read the certificate after
+  ansible.builtin.stat:
+    path: "{{ lab_hub_state_abs }}/tls/api.crt"
+    checksum_algorithm: sha256
+  register: hub_tls_after
+
+- name: Keep whether Tailscale renewed it
+  ansible.builtin.set_fact:
+    hub_tls_changed: "{{ hub_tls_before.stat.checksum | default('') != hub_tls_after.stat.checksum | default('') }}"

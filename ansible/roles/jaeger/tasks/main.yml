@@ -1,0 +1,66 @@
+---
+# Jaeger on the hub, the one collector of the lab's traces, under launchd: the
+# native darwin-arm64 binary of its release, pinned by checksum. It restarts
+# when its binary, its config or the certificate changed, or in a restart.
+
+- name: Create the collector's directories
+  ansible.builtin.file:
+    path: "{{ lab_hub_state_abs }}/{{ item }}"
+    state: directory
+    mode: "0700"
+  loop: [bin, config, log]
+
+- name: Download the trace collector
+  ansible.builtin.get_url:
+    url: "{{ lab_tracing_url }}"
+    dest: "{{ lab_hub_state_abs }}/bin/jaeger-{{ lab_tracing_version }}.tar.gz"
+    checksum: "sha256:{{ lab_tracing_archive_sha256 }}"
+    mode: "0644"
+
+- name: Unpack the trace collector
+  ansible.builtin.command:
+    argv:
+      - tar
+      - -xzf
+      - "{{ lab_hub_state_abs }}/bin/jaeger-{{ lab_tracing_version }}.tar.gz"
+      - -C
+      - "{{ lab_hub_state_abs }}/bin"
+      - --strip-components
+      - "1"
+      - "jaeger-{{ lab_tracing_version }}-darwin-arm64/jaeger"
+  args:
+    creates: "{{ lab_hub_state_abs }}/bin/jaeger"
+  register: jaeger_binary
+
+- name: Write the trace collector config
+  ansible.builtin.template:
+    src: jaeger.yaml.j2
+    dest: "{{ lab_hub_state_abs }}/config/jaeger.yaml"
+    mode: "0600"
+  vars:
+    hub_state: "{{ lab_hub_state_abs }}"
+  register: jaeger_config
+
+- name: Let the VMs reach the trace collector through the firewall
+  ansible.builtin.include_role:
+    name: firewall
+    apply:
+      tags: [firewall]
+  vars:
+    firewall_app: "{{ lab_hub_state_abs }}/bin/jaeger"
+  tags: [firewall]
+
+- name: Run the trace collector under launchd
+  ansible.builtin.include_role:
+    name: launchd
+  vars:
+    launchd_label: "{{ jaeger_label }}"
+    launchd_program_arguments:
+      - "{{ lab_hub_state_abs }}/bin/jaeger"
+      - --config
+      - "{{ lab_hub_state_abs }}/config/jaeger.yaml"
+    launchd_working_directory: "{{ lab_hub_state_abs }}"
+    launchd_log: "{{ lab_hub_state_abs }}/log/jaeger.log"
+    launchd_restart: >-
+      {{ lab_mode == 'restart' or jaeger_binary is changed or jaeger_config is changed
+         or hub_tls_changed | default(false) }}

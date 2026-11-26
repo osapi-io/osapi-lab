@@ -1,0 +1,213 @@
+---
+# The lab, composed. Each workflow of the justfile is this playbook with:
+#
+#   lab_mode   deploy, bump, rebuild or restart (group_vars/all.yml says what
+#              each does to a VM)
+#   lab_only   the VMs of the run, such as ubuntu-1,debian-lts; empty is each
+#   --tags     the components of the run: nats, controller, jaeger, vms and
+#              client; no tags is each
+#
+# Thus `just deploy controller` is `lab.yml -e lab_mode=deploy --tags
+# controller`: it builds darwin, copies it to the hub, restarts the controller
+# alone, and waits for each agent to be Ready. A play that the tags do not name
+# is skipped. The lock, the check, the build and the secrets run each time.
+
+- name: Lock
+  ansible.builtin.import_playbook: lock.yml
+  tags: [always]
+
+- name: Check the run
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [always]
+  tasks:
+    - name: Check the mode and the VMs of the run
+      ansible.builtin.assert:
+        that:
+          - lab_mode in ['deploy', 'bump', 'rebuild', 'restart', 'stop', 'start']
+          - lab_only_vms | reject('in', lab_vms | map(attribute='name')) | list | length == 0
+        fail_msg: >-
+          lab_mode is one of deploy, bump, rebuild, restart, stop and start, and each VM of
+          lab_only is one of {{ lab_vms | map(attribute='name') | join(', ') }}.
+          The run has {{ lab_mode }} and {{ lab_only_vms | join(', ') or 'each VM' }}.
+        quiet: true
+
+- name: Build
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [always]
+  roles:
+    - role: build
+      when: lab_mode not in ['restart', 'stop', 'start']
+
+# The admin token is checked against the signing keys on each run, and signed
+# again when a key changed or it expires soon.
+- name: Secrets
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [always]
+  roles:
+    - secrets
+
+# The hub's processes. Each restarts only when what it runs changed, or in a
+# restart, so a run on one of them leaves the others as they are.
+- name: Hub
+  hosts: hub
+  gather_facts: true
+  gather_subset: [min]
+  environment:
+    PATH: "{{ lab_hub_path }}"
+  tasks:
+    - name: Get the certificate
+      when: lab_entry == 'main'
+      ansible.builtin.include_role:
+        name: hub_tls
+        apply:
+          tags: [nats, controller, jaeger]
+      tags: [nats, controller, jaeger]
+
+    - name: Prepare what NATS and the controller share
+      when: lab_entry == 'main'
+      ansible.builtin.include_role:
+        name: hub_host
+        apply:
+          tags: [nats, controller]
+      tags: [nats, controller]
+
+    - name: NATS
+      ansible.builtin.include_role:
+        name: nats_server
+        tasks_from: "{{ lab_entry }}"
+        apply:
+          tags: [nats]
+      tags: [nats]
+
+    - name: Controller
+      ansible.builtin.include_role:
+        name: controller
+        tasks_from: "{{ lab_entry }}"
+        apply:
+          tags: [controller]
+      tags: [controller]
+
+    - name: Jaeger
+      ansible.builtin.include_role:
+        name: jaeger
+        tasks_from: "{{ lab_entry }}"
+        apply:
+          tags: [jaeger]
+      tags: [jaeger]
+
+- name: Images and VMs
+  hosts: hub
+  gather_facts: true
+  gather_subset: [min]
+  tags: [vms]
+  environment:
+    PATH: "{{ lab_hub_path }}"
+  tasks:
+    - name: Check that the images are current for a bump
+      when: lab_mode == 'bump' and lab_update_vms | length > 0
+      ansible.builtin.include_role:
+        name: lab_images
+        tasks_from: current
+
+    - name: Stop or start each VM
+      when: lab_entry != 'main'
+      ansible.builtin.include_role:
+        name: tart_vm
+        tasks_from: "{{ lab_entry }}"
+      vars:
+        tart_vm_name: lab-{{ item.name }}
+        tart_vm_launchd_label: io.osapi.lab.vm.{{ item.name }}
+      loop: "{{ lab_targets }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Bake the images
+      when: lab_replace_vms | length > 0
+      ansible.builtin.include_role:
+        name: lab_images
+
+    - name: Clone each VM
+      ansible.builtin.include_role:
+        name: lab_vm
+      vars:
+        lab_vm_entry: "{{ item }}"
+        lab_vm_recreate: "{{ lab_mode == 'rebuild' }}"
+      loop: "{{ lab_replace_vms }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+# The configs of this machine name each running VM, so a run on the client
+# finds them too.
+- name: Find the running VMs
+  hosts: hub
+  gather_facts: true
+  gather_subset: [min]
+  tags: [vms, client]
+  environment:
+    PATH: "{{ lab_hub_path }}"
+  roles:
+    - vm_inventory
+
+- name: Read the agents before a restart
+  hosts: hub
+  gather_facts: true
+  gather_subset: [min]
+  tags: [vms]
+  tasks:
+    - name: List the agents
+      when: (lab_update_vms + lab_restart_vms) | length > 0
+      ansible.builtin.include_role:
+        name: fleet_ready
+        tasks_from: snapshot
+
+- name: Agents
+  hosts: vms_update:vms_restart
+  gather_facts: false
+  become: true
+  tags: [vms]
+  roles:
+    - lab_agent
+
+# After NATS or the controller restarts, each agent connects again: the run
+# waits for each to be Ready, as it does after a change to the VMs.
+- name: Wait for the agents
+  hosts: hub
+  gather_facts: true
+  gather_subset: [min]
+  tags: [vms, nats, controller]
+  environment:
+    PATH: "{{ lab_hub_path }}"
+  roles:
+    - role: fleet_ready
+      when: lab_mode != 'stop'
+
+- name: The configs of this machine
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [client, vms]
+  roles:
+    - client
+
+# The nats CLI connects as the cli user, as `.envrc` sets it for a person.
+- name: Consumers
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags: [vms]
+  environment:
+    NATS_URL: "{{ lab_nats_url }}"
+    NATS_CREDS: "{{ lab_nats_creds_dir }}/cli.creds"
+  roles:
+    - role: nats_consumers
+      when: lab_mode in ['deploy', 'rebuild']
+
+- name: Unlock
+  ansible.builtin.import_playbook: unlock.yml
+  tags: [always]

@@ -1,0 +1,9 @@
+---
+# The VMs whose images the run bakes: each that is missing or was baked from a
+# different build or packer directory, or each with lab_images_rebuild. A VM
+# that upgrades in place gets an image only while it does not exist.
+lab_images_vms: "{{ lab_replace_vms }}"
+lab_images_rebuild: "{{ lab_mode == 'rebuild' }}"
+# Delete the images that no VM of this build clones. Only a run on each VM
+# prunes: a run on some VMs leaves the images that the others run from.
+lab_images_prune: "{{ lab_mode in ['deploy', 'rebuild'] and not lab_only_vms }}"

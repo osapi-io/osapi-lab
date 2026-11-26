@@ -1,0 +1,3 @@
+---
+# The launchd label of the trace collector.
+jaeger_label: io.osapi.lab.jaeger

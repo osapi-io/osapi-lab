@@ -95,9 +95,11 @@ it.
 | Examine the NATS server, as `sys`               | `nats-sys server report jetstream` | nothing      |
 | Open a shell on a VM                            | `just ssh ubuntu-1`                | nothing      |
 | See the trace of a request, controller to agent | `http://<lab_hub_addr>:16686`      | nothing      |
-| Bake the changed images and replace those VMs   | `just deploy`                      | hub and VMs  |
+| Bring the lab to your checkout                  | `just deploy`                      | hub and VMs  |
+| Put a new build into the running processes      | `just bump`                        | hub and VMs  |
 | Bake each image again and replace each VM       | `just rebuild`                     | everything   |
-| Make the whole lab agree with this repository   | `just site`                        | everything   |
+| Restart the processes, with no build            | `just restart`                     | hub and VMs  |
+| Stop processes and VMs, and start them again    | `just stop`, `just start`          | hub and VMs  |
 | Run this machine as an agent too                | `just agent`                       | this machine |
 | Remove the lab from the hub                     | `just teardown`                    | the hub      |
 
@@ -117,11 +119,49 @@ again.
 If the checkout and `packer/` did not change, `deploy` changes nothing. `just`
 with no arguments lists all the recipes, not only these.
 
+### Change one part of the lab
+
+`deploy`, `bump`, `rebuild`, `restart`, `stop` and `start` each take targets.
+With no target, a recipe does its work on each part of the lab. A target limits
+it to that part:
+
+| Target       | The part                                    |
+| ------------ | ------------------------------------------- |
+| `nats`       | the NATS server on the hub                  |
+| `controller` | the controller on the hub, with the API     |
+| `ui`         | the controller, because osapi embeds the UI |
+| `jaeger`     | the trace collector on the hub              |
+| `hub`        | `nats`, `controller` and `jaeger`           |
+| `vms`        | each VM                                     |
+| a VM's name  | that VM, such as `ubuntu-1` or `debian-lts` |
+| `client`     | the configs on this machine                 |
+
+For example:
+
+```sh
+just deploy ui                  # builds darwin, restarts the controller only
+just bump ubuntu-1 fedora-1     # the new build into two VMs
+just rebuild debian-lts         # a new image and a new clone of debian-lts
+just restart nats               # restarts NATS, and waits for each agent
+just stop fedora-1              # stops the VM; launchd does not start it again
+just start fedora-1             # starts it again, and waits for its agent
+```
+
+A run on a part changes only that part. A process on the hub restarts only when
+it is a target and its binary, its config, its certificate or its credentials
+changed, or in a `restart`. A run on the hub waits until each agent is `Ready`
+again. The build compiles linux only when the run reaches a VM, so a `deploy ui`
+takes about 30 seconds.
+
+`ansible/playbooks/lab.yml` does each of these. A recipe gives it the mode, the
+VMs in `lab_only` and the parts as tags. An argument that starts with `-` goes
+to Ansible, such as `just deploy vms -e build_force=true`.
+
 ### One run at a time
 
-Only one run can change the images and the VMs. `deploy`, `rebuild`, `site`,
-`images`, `vms` and `teardown` take a lock on the hub, `~/.osapi-lab/lock`, and
-give it back when they end. A second run stops with the name of the run that
+Only one run can change the images and the VMs. `deploy`, `bump`, `rebuild`,
+`restart`, `build` and `teardown` take a lock on the hub, `~/.osapi-lab/lock`,
+and give it back when they end. A second run stops with the name of the run that
 holds the lock: its machine, its process, its build and its start time. Two runs
 at once delete each other's images (#38).
 
@@ -154,7 +194,7 @@ table:
 | You see                               | It means                                        | Run           |
 | ------------------------------------- | ----------------------------------------------- | ------------- |
 | `IMAGE` tag older than the last build | the VMs run an earlier build (not `debian-lts`) | `just deploy` |
-| `RUN BY manual`, or `STATE absent`    | launchd does not run the VM, or the VM is gone  | `just site`   |
+| `RUN BY manual`, or `STATE absent`    | launchd does not run the VM, or the VM is gone  | `just deploy` |
 | `AGENT` is not `active`               | the agent stopped; read the logs of the hub     | `just logs`   |
 
 ## Make a change
@@ -208,10 +248,10 @@ If a person must give a value for a new setting, put the setting in
 CI runs all the checks except the format of the Packer templates. CI has no Mac
 and no VMs. Thus also run the change on a lab:
 
-| You changed        | Run                              |
-| ------------------ | -------------------------------- |
-| `packer/`          | `just deploy`, which bakes again |
-| a role or playbook | the playbook that uses it, twice |
+| You changed        | Run                                               |
+| ------------------ | ------------------------------------------------- |
+| `packer/`          | `just deploy`, which bakes again                  |
+| a role or playbook | `just deploy` with the target that uses it, twice |
 
 The second run of a playbook must report `changed=0`. Then make sure that the
 lab is in good condition. [Read `just list`](#read-just-list) tells how.
