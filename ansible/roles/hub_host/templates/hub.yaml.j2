@@ -23,7 +23,9 @@ controller:
       signing_keys:
 {% for k in lab_signing_keys %}
         - id: {{ k.id }}
-          key: {{ k.key }}
+          # A reference to the key in the vault, once the controller holds it
+          # there; the literal key until then (osapi-io/osapi-lab#54).
+          key: {{ ('secret://' ~ lab_vault ~ '/' ~ lab_vault_signing_key_prefix ~ k.id) if hub_signing_in_vault | default(false) | bool else k.key }}
 {% endfor %}
   nats:
     port: {{ lab_nats_port }}

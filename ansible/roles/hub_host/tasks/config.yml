@@ -1,0 +1,21 @@
+---
+# Renders hub.yaml. hub_host_signing_in_vault is whether the signing keys are
+# references to the vault, or the keys themselves. The controller role renders
+# it again when it put the keys in the vault.
+- name: Read the public key of osapi's account
+  ansible.builtin.command: cat {{ lab_hub_nats_dir }}/account.pub
+  register: hub_host_nats_account
+  changed_when: false
+  check_mode: false
+
+- name: Render the hub's config
+  ansible.builtin.template:
+    src: hub.yaml.j2
+    dest: "{{ lab_hub_state_abs }}/config/hub.yaml"
+    mode: "0600"
+  vars:
+    hub_state: "{{ lab_hub_state_abs }}"
+    hub_nats: "{{ lab_hub_nats_dir }}"
+    hub_nats_account: "{{ hub_host_nats_account.stdout | trim }}"
+    hub_signing_in_vault: "{{ hub_host_signing_in_vault }}"
+  register: hub_host_config

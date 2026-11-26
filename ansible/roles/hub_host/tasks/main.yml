@@ -36,22 +36,17 @@
     creates: "{{ lab_hub_nats_dir }}/resolver.conf"
   register: hub_host_nats_auth
 
-- name: Read the public key of osapi's account
-  ansible.builtin.command: cat {{ lab_hub_nats_dir }}/account.pub
-  register: hub_host_nats_account
-  changed_when: false
-  check_mode: false
+# The signing keys are in the controller's vault after its first run: the
+# config then refers to them, and has no key in it (osapi-io/osapi-lab#54).
+- name: Check whether the vault holds the signing keys
+  ansible.builtin.stat:
+    path: "{{ lab_hub_state_abs }}/secrets/signing-keys.in-vault"
+  register: hub_host_in_vault
 
 - name: Render the hub's config
-  ansible.builtin.template:
-    src: hub.yaml.j2
-    dest: "{{ lab_hub_state_abs }}/config/hub.yaml"
-    mode: "0600"
+  ansible.builtin.include_tasks: config.yml
   vars:
-    hub_state: "{{ lab_hub_state_abs }}"
-    hub_nats: "{{ lab_hub_nats_dir }}"
-    hub_nats_account: "{{ hub_host_nats_account.stdout | trim }}"
-  register: hub_host_config
+    hub_host_signing_in_vault: "{{ hub_host_in_vault.stat.exists }}"
 
 - name: Let agents reach NATS through the firewall
   ansible.builtin.include_role:
