@@ -113,7 +113,7 @@ _lab mode *targets:
     if [ ${#tags[@]} -gt 0 ]; then args+=(--tags "$(IFS=,; echo "${tags[*]}")"); fi
     just ansible-run lab "${args[@]}" ${extra[@]+"${extra[@]}"}
 
-# Run osapi's integration suite against each VM of the lab, or the VMs named, such as `just int ubuntu-1 fedora-1`, with the write tests that CI runs; run it in a lab-session. LAB_OSAPI names the osapi checkout (../osapi)
+# Run osapi's integration suite against each VM of the lab and each other Ready agent, such as the Mac of `just agent`, or the agents named, such as `just int ubuntu-1 fedora-1`, with the write tests that CI runs; run it in a lab-session. LAB_OSAPI names the osapi checkout (../osapi)
 [group('lab')]
 int *vms:
     #!/usr/bin/env bash
@@ -122,6 +122,14 @@ int *vms:
     vms="{{ vms }}"
     if [ -z "$vms" ]; then
         vms=$(awk '/^lab_vms:/ {on=1; next} on && /^[^ #-]/ {on=0} on && /- name:/ {print $3}' ansible/group_vars/all.yml)
+        # An agent that is not a VM, such as this Mac with just agent, runs
+        # only while someone runs it: test it when it is Ready.
+        others=$(.lab/bin/osapi -f .lab/config/cli.yaml client agent list --json 2>/dev/null |
+            jq -r '.items[]? | select(.state == "Ready") | .hostname' | grep -vxF "$vms" || true)
+        if [ -n "$others" ]; then
+            echo "and the agents that are not VMs: $(echo $others)"
+            vms="$vms $others"
+        fi
     fi
     mkdir -p .lab/int
     failed=()
