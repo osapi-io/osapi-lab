@@ -2,7 +2,7 @@
 # The image of a VM is the whole VM. Its record holds what it was baked from,
 # so a VM is cloned again when its image was rebuilt.
 - name: Read what the image was baked from {{ lab_vm_entry.name }}
-  ansible.builtin.command: cat {{ lab_hub_state_abs }}/images/img-{{ lab_vm_entry.name }}-{{ lab_build_tag }}.fingerprint
+  ansible.builtin.command: cat {{ (lab_hub_state_abs ~ '/images/img-' ~ lab_vm_entry.name ~ '-' ~ lab_build_tag ~ '.fingerprint') | quote }}
   register: lab_vm_image_fingerprint
   changed_when: false
   failed_when: false
@@ -21,7 +21,7 @@
 # What the VM should be cloned from: the image and the source fingerprint. The
 # hub records what it was cloned from; a VM that differs is recloned.
 - name: Read what the VM was cloned from {{ lab_vm_entry.name }}
-  ansible.builtin.command: cat {{ lab_hub_state_abs }}/vms/{{ lab_vm_entry.name }}.source
+  ansible.builtin.command: cat {{ (lab_hub_state_abs ~ '/vms/' ~ lab_vm_entry.name ~ '.source') | quote }}
   register: lab_vm_source
   changed_when: false
   failed_when: false
@@ -88,7 +88,7 @@
     tart_vm_name: "lab-{{ lab_vm_entry.name }}"
     tart_vm_source: "img-{{ lab_vm_entry.name }}-{{ lab_build_tag }}"
     tart_vm_recreate: "{{ lab_vm_reclone }}"
-    tart_vm_launchd_label: "io.osapi.lab.vm.{{ lab_vm_entry.name }}"
+    tart_vm_launchd_label: "{{ lab_vm_label_prefix }}{{ lab_vm_entry.name }}"
     tart_vm_log: "{{ lab_hub_state_abs }}/log/vm-{{ lab_vm_entry.name }}.log"
     tart_vm_inventory_name: "{{ lab_vm_entry.name }}"
     tart_vm_groups: "{{ ['vms'] + (['vms_in_place'] if (lab_vm_in_place | bool) else []) }}"

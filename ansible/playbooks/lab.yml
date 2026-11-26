@@ -126,7 +126,7 @@
         tasks_from: "{{ lab_entry }}"
       vars:
         tart_vm_name: lab-{{ item.name }}
-        tart_vm_launchd_label: io.osapi.lab.vm.{{ item.name }}
+        tart_vm_launchd_label: "{{ lab_vm_label_prefix }}{{ item.name }}"
       loop: "{{ lab_targets }}"
       loop_control:
         label: "{{ item.name }}"

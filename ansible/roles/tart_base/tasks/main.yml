@@ -37,7 +37,9 @@
     # The hub has no qemu-img; the script reads the qcow2 format itself.
     - name: Write the disk image as a raw disk
       ansible.builtin.script:
-        cmd: qcow2_to_raw.py {{ tart_base_work_dir }}/disk.qcow2 {{ tart_base_work_dir }}/disk.raw
+        cmd: >-
+          qcow2_to_raw.py {{ (tart_base_work_dir ~ '/disk.qcow2') | quote }}
+          {{ (tart_base_work_dir ~ '/disk.raw') | quote }}
         executable: python3
       changed_when: true
 
@@ -72,7 +74,7 @@
         set -eu
         tart delete {{ tart_base_tmp }} 2>/dev/null || true
         tart create --linux --disk-size 1 {{ tart_base_tmp }}
-        tart set {{ tart_base_tmp }} --disk {{ tart_base_work_dir }}/disk.raw
+        tart set {{ tart_base_tmp }} --disk {{ (tart_base_work_dir ~ '/disk.raw') | quote }}
         tart set {{ tart_base_tmp }} --disk-size {{ tart_base_disk_gb }}
       changed_when: true
 

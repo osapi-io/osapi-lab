@@ -6,4 +6,4 @@
     name: launchd
     tasks_from: start
   vars:
-    launchd_label: io.osapi.lab.nats
+    launchd_label: "{{ lab_labels.nats }}"

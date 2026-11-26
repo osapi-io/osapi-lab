@@ -1,7 +1,7 @@
 packer {
   required_plugins {
     tart = {
-      version = ">= 1.12.0"
+      version = "= 1.21.0"
       source  = "github.com/cirruslabs/tart"
     }
   }
@@ -63,8 +63,7 @@ variable "join" {
 
 variable "nats_host" {
   type        = string
-  description = "The address of the hub on the network of the VMs: the gateway of tart's shared network."
-  default     = "192.168.64.1"
+  description = "The address of the hub on the network of the VMs: the gateway of tart's shared network. The lab_images role passes lab_vm_gateway."
 }
 
 variable "nats_port" {
@@ -91,7 +90,7 @@ locals {
     fedora = "ghcr.io/cirruslabs/fedora:42"
     # Cirrus Labs publishes no openSUSE image. The hub makes one from
     # openSUSE's own cloud image: bases/opensuse has the source and the seed
-    # of its first boot, and images.yml passes its name in base_image.
+    # of its first boot, and the lab_images role passes its name in base_image.
     opensuse = var.base_image
   }
 

@@ -162,12 +162,13 @@ logs *names:
 lock name:
     #!/usr/bin/env bash
     set -uo pipefail
-    until LAB_SESSION={{ name }} just ansible-run lock > /tmp/lab-lock-{{ name }}.log 2>&1; do
-        grep -q 'holds the lock' /tmp/lab-lock-{{ name }}.log || { cat /tmp/lab-lock-{{ name }}.log; exit 1; }
+    log=$(mktemp -t lab-lock)
+    trap 'rm -f "$log"' EXIT
+    until LAB_SESSION={{ quote(name) }} just ansible-run lock > "$log" 2>&1; do
+        grep -q 'holds the lock' "$log" || { cat "$log"; exit 1; }
         echo "the lab is held; waiting"
         sleep 30
     done
-    rm -f /tmp/lab-lock-{{ name }}.log
     echo "the lab is held by session {{ name }}: run its recipes with LAB_SESSION={{ name }}, then just unlock {{ name }}"
 
 # Give back the lab that `just lock <name>` held

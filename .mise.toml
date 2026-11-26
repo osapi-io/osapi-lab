@@ -1,6 +1,6 @@
 [tools]
-just = "latest"
-packer = "latest"
-uv = "latest"
+just = "1.59.0"
+packer = "1.16.2"
+uv = "0.12.5"
 # The nats CLI, for looking at the lab's NATS; .envrc points it at the hub.
 "github:nats-io/natscli" = "0.5.1"

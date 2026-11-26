@@ -6,4 +6,4 @@
     name: launchd
     tasks_from: stop
   vars:
-    launchd_label: io.osapi.lab.controller
+    launchd_label: "{{ lab_labels.controller }}"

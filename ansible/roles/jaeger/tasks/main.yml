@@ -63,7 +63,7 @@
   ansible.builtin.include_role:
     name: launchd
   vars:
-    launchd_label: "{{ jaeger_label }}"
+    launchd_label: "{{ lab_labels.jaeger }}"
     launchd_program_arguments:
       - "{{ lab_hub_state_abs }}/bin/jaeger"
       - --config

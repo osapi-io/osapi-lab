@@ -4,16 +4,16 @@
 <plist version="1.0">
 <dict>
   <key>Label</key>
-  <string>{{ launchd_label }}</string>
+  <string>{{ launchd_label | e }}</string>
   <key>ProgramArguments</key>
   <array>
 {% for arg in launchd_program_arguments %}
-    <string>{{ arg }}</string>
+    <string>{{ arg | e }}</string>
 {% endfor %}
   </array>
 {% if launchd_working_directory %}
   <key>WorkingDirectory</key>
-  <string>{{ launchd_working_directory }}</string>
+  <string>{{ launchd_working_directory | e }}</string>
 {% endif %}
   <key>RunAtLoad</key>
   <true/>
@@ -23,9 +23,9 @@
   <integer>5</integer>
 {% if launchd_log %}
   <key>StandardOutPath</key>
-  <string>{{ launchd_log }}</string>
+  <string>{{ launchd_log | e }}</string>
   <key>StandardErrorPath</key>
-  <string>{{ launchd_log }}</string>
+  <string>{{ launchd_log | e }}</string>
 {% endif %}
 </dict>
 </plist>

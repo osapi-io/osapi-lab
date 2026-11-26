@@ -76,7 +76,7 @@ On your machine, in this repository, run:
 mise install                                           # just, uv, packer
 cp ansible/inventory.example.yml ansible/inventory.yml # your hub and osapi checkout
 direnv allow                                           # `osapi` here talks to the lab
-just fetch site                                        # everything
+just fetch deploy                                      # everything
 ```
 
 `ansible/inventory.yml` is the only file that names your machines. Git ignores
