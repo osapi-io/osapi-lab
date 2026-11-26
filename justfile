@@ -71,6 +71,13 @@ rebuild:
 bump:
     just ansible-run bump
 
+# Run osapi's integration suite against the lab, with the write tests that CI runs; run it in a lab-session, after bump
+[group('lab')]
+int target="ubuntu-1" osapi=(justfile_directory() / ".." / "osapi"):
+    cd {{osapi}} && OSAPI_INTEGRATION_OSAPIFILE={{justfile_directory()}}/.lab/config/cli.yaml \
+      OSAPI_INTEGRATION_TARGET={{target}} OSAPI_INTEGRATION_WRITES=1 OSAPI_INTEGRATION_WRITE_BEHAVIORS=1 \
+      mise exec -- just go-unit-int
+
 # Bake the images of what changed and replace those VMs (needs passwordless sudo on the hub)
 [group('lab')]
 deploy:
