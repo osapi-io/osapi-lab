@@ -34,9 +34,10 @@
 
 # The signing keys are in the controller's vault after its first run: the
 # config then refers to them, and has no key in it (osapi-io/osapi-lab#54).
+# The record is in the store of the vault, so it goes with the store.
 - name: Check whether the vault holds the signing keys
   ansible.builtin.stat:
-    path: "{{ lab_hub_state_abs }}/secrets/signing-keys.in-vault"
+    path: "{{ lab_vault_marker }}"
   register: hub_host_in_vault
 
 - name: Render the hub's config
