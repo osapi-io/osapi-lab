@@ -99,8 +99,18 @@ _lab mode *targets:
     #!/usr/bin/env bash
     set -euo pipefail
     tags=() vms=() extra=()
-    for t in {{ targets }}; do
+    set -- {{ targets }}
+    while [ $# -gt 0 ]; do
+        t=$1
+        shift
         case "$t" in
+            # -e and --extra-vars take the next word as their value.
+            -e | --extra-vars)
+                [ $# -gt 0 ] || { echo "$t needs a value" >&2; exit 1; }
+                extra+=("$t" "$1")
+                shift
+                continue
+                ;;
             nats | controller | jaeger | vms | client) tags+=("$t") ;;
             ui) tags+=(controller) ;;
             hub) tags+=(nats controller jaeger) ;;
@@ -167,31 +177,31 @@ logs *names:
 
 # Hold the lab for a session, such as `just lock osapi-1139`: wait while another run or session holds it. Each recipe that runs with LAB_SESSION=<name> keeps it, and only `just unlock <name>` gives it back
 [group('lab')]
-lock name:
+lock name *args:
     #!/usr/bin/env bash
     set -uo pipefail
     log=$(mktemp -t lab-lock)
     trap 'rm -f "$log"' EXIT
-    until LAB_SESSION={{ quote(name) }} just ansible-run lock > "$log" 2>&1; do
+    until LAB_SESSION={{ quote(name) }} just ansible-run lock {{ args }} > "$log" 2>&1; do
         grep -q 'holds the lock' "$log" || { cat "$log"; exit 1; }
         echo "the lab is held; waiting"
         sleep 30
     done
-    echo "the lab is held by session {{ name }}: run its recipes with LAB_SESSION={{ name }}, then just unlock {{ name }}"
+    echo "the lab is held by session "{{ quote(name) }}": run its recipes with LAB_SESSION="{{ quote(name) }}", then just unlock "{{ quote(name) }}
 
 # Give back the lab that `just lock <name>` held
 [group('lab')]
-unlock name:
-    LAB_SESSION={{ name }} just ansible-run unlock -e lab_session_release=true
+unlock name *args:
+    LAB_SESSION={{ quote(name) }} just ansible-run unlock -e lab_session_release=true {{ args }}
 
 # Hold the lab for one command and give it back after, also when it fails, such as `just lab-session osapi-1139 "just deploy && go test ./..."`
 [group('lab')]
 lab-session name cmd:
     #!/usr/bin/env bash
     set -uo pipefail
-    just lock {{ name }} || exit 1
-    trap 'just unlock {{ name }}' EXIT
-    LAB_SESSION={{ name }} bash -c {{ quote(cmd) }}
+    just lock {{ quote(name) }} || exit 1
+    trap 'just unlock {{ quote(name) }}' EXIT
+    LAB_SESSION={{ quote(name) }} bash -c {{ quote(cmd) }}
 
 [group('lab')]
 ssh vm:

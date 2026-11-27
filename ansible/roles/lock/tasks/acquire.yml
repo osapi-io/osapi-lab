@@ -83,7 +83,10 @@
     {{ lock_current.stdout }}
     HOLDER
         )
-        then=$(date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$since" +%s 2>/dev/null || echo 0)
+        # BSD date on the Mac, GNU date on Linux. A since that neither reads
+        # is not taken as old: the session keeps its lock.
+        then=$(date -j -u -f '%Y-%m-%dT%H:%M:%SZ' "$since" +%s 2>/dev/null \
+          || date -u -d "$since" +%s 2>/dev/null || date -u +%s)
         if [ $(( $(date -u +%s) - then )) -gt $(( {{ lock_session_ttl }} * 3600 )) ]; then
           echo gone
         else
@@ -159,11 +162,23 @@
       delete each other's images. Wait for it, or for the session to run
       `just unlock`. If it is gone, run again with -e lab_lock_break=true.
 
+# Two runs can both find the same holder gone. Each breaks the lock only if
+# its holder is still the one it found gone: the check and the move are one
+# step, so a run never removes the lock that the other run took since.
 - name: Break the lock of a run that is gone
   when: lock_other | bool
-  ansible.builtin.file:
-    path: "{{ lock_dir }}"
-    state: absent
+  ansible.builtin.shell: |
+    set -u
+    stale={{ (lock_dir ~ '.stale.') | quote }}$$
+    [ "$(head -1 {{ (lock_dir ~ '/holder') | quote }} 2>/dev/null)" = {{ lock_other_holder | quote }} ] || exit 0
+    mv {{ lock_dir | quote }} "$stale" 2>/dev/null || exit 0
+    rm -rf "$stale"
+    echo broken
+  args:
+    executable: /bin/bash
+  register: lock_broken
+  changed_when: "'broken' in lock_broken.stdout"
+  check_mode: false
 
 - name: Take the lock
   when: lock_current.rc != 0 or lock_other | bool
@@ -191,6 +206,23 @@
           fi
           if [ -f {{ (lock_dir ~ '/holder') | quote }} ]; then
             bare=0
+            # The run that won the mkdir can die too. A run on this machine
+            # whose process is gone is broken, as above.
+            winner=$(head -1 {{ (lock_dir ~ '/holder') | quote }} 2>/dev/null)
+            case "$winner" in
+              "$(hostname -s) "*)
+                pid=${winner##* }
+                case "$(ps -o command= -p "$pid" 2>/dev/null)" in
+                  */bin/ansible-playbook\ *) ;;
+                  *)
+                    stale={{ (lock_dir ~ '.stale.') | quote }}$$
+                    [ "$(head -1 {{ (lock_dir ~ '/holder') | quote }} 2>/dev/null)" = "$winner" ] \
+                      && mv {{ lock_dir | quote }} "$stale" 2>/dev/null && rm -rf "$stale"
+                    continue
+                    ;;
+                esac
+                ;;
+            esac
           else
             bare=$(( bare + 1 ))
             if [ "$bare" -ge 12 ]; then
@@ -216,6 +248,19 @@
           build {{ lab_build_tag | default('', true) or 'none' }}
           since {{ now(utc=true, fmt='%Y-%m-%dT%H:%M:%SZ') }}
         mode: "0644"
+
+# A session holds the lock across runs. Each run of the session writes its
+# since again, so a long session is stale only lock_session_ttl hours after
+# its last run, not after its first.
+- name: Keep the lock of this session fresh
+  when:
+    - lock_current.rc == 0
+    - not (lock_other | bool)
+    - lock_holder is match('^session ')
+  ansible.builtin.lineinfile:
+    path: "{{ lock_dir }}/holder"
+    regexp: '^since '
+    line: "since {{ now(utc=true, fmt='%Y-%m-%dT%H:%M:%SZ') }}"
 
 - name: Count the playbooks of this run that hold the lock
   ansible.builtin.set_fact:
