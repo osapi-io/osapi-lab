@@ -78,6 +78,10 @@ nats:
     port: {{ lab_nats_port }}
     url: {{ lab_nats_url }}
     store_dir: {{ hub_state }}/jetstream
+    # The self-signed certificate of NATS's metrics server, nats-metrics.crt,
+    # goes here. The default, /etc/osapi/pki, is not writable by the hub's
+    # user (osapi-io/osapi#1551).
+    key_dir: {{ hub_state }}/pki
     # TLS with the hub's Tailscale certificate, as the API serves.
     tls:
       enabled: true
