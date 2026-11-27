@@ -61,6 +61,16 @@ controller:
     signing_key_file: {{ hub_nats }}/agent-signing.nk
     join_signing_key_file: {{ hub_nats }}/join-signing.nk
     account: {{ hub_nats_account }}
+    # A revocation, a rejection or a delete of a VM cuts its NATS user from
+    # the server at once: the controller adds it to the revocations of
+    # osapi's account and sends the account as a user of the system account
+    # (osapi-io/osapi#1523). operator create, or operator update for auth
+    # from before, writes these files. Until they exist, the controller logs
+    # a warning and a removed VM stays on NATS until its JWT expires.
+    revocation:
+      account_jwt_file: {{ hub_nats }}/account.jwt
+      operator_signing_key_file: {{ hub_nats }}/operator-signing.nk
+      system_creds_file: {{ hub_nats }}/system.creds
   # The vault of the secrets, with its key in the hub's state, not in
   # /etc/osapi. The controller makes the key at its first start.
   secrets:
