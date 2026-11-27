@@ -33,7 +33,7 @@
 
 - name: Record that the vault holds the signing keys
   ansible.builtin.copy:
-    dest: "{{ lab_hub_state_abs }}/secrets/signing-keys.in-vault"
+    dest: "{{ lab_vault_marker }}"
     content: "{{ lab_vault }}\n"
     mode: "0600"
 

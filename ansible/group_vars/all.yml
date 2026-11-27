@@ -91,6 +91,11 @@ lab_signing_keys:
 # and the prefix of each key's name in it: jwt-signing-key-lab.
 lab_vault: default
 lab_vault_signing_key_prefix: jwt-signing-key-
+# The record that the vault holds the signing keys. It is in the JetStream
+# store, beside NATS's own directory, because the vault is in that store: a
+# run after the store is removed finds no record, starts the controller on
+# the keys themselves and writes them into the new vault.
+lab_vault_marker: "{{ lab_hub_state_abs }}/jetstream/signing-keys.in-vault"
 
 # NATS runs in operator (decentralized JWT) mode. The hub makes its operator,
 # its accounts and a credentials file for each osapi role with `osapi nats
