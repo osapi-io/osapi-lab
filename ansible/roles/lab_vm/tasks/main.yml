@@ -94,7 +94,9 @@
     tart_vm_groups: "{{ ['vms'] + (['vms_in_place'] if (lab_vm_in_place | bool) else []) }}"
     tart_vm_user: "{{ lab_vm_user }}"
     tart_vm_ssh_key: "{{ lab_ssh_key }}"
-    # The VMs are on the hub's vmnet subnet, reachable only through the hub.
+    # The VMs are on the hub's vmnet subnet, reachable only through the hub. A
+    # recloned VM has a new host key, so the check is off for the VM only; the
+    # jump to the hub uses ~/.ssh/known_hosts and checks the hub's key.
     tart_vm_ssh_args: >-
       -o ProxyJump={{ (ansible_user ~ '@') if ansible_user is defined else '' }}{{ ansible_host }}
       -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null

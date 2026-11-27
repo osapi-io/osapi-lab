@@ -29,6 +29,8 @@
     ansible_host: "{{ item.stdout }}"
     ansible_user: "{{ lab_vm_user }}"
     ansible_ssh_private_key_file: "{{ lab_ssh_key }}"
+    # A recloned VM has a new host key, so the check is off for the VM only.
+    # The jump to the hub uses ~/.ssh/known_hosts and checks the hub's key.
     ansible_ssh_common_args: >-
       -o ProxyJump={{ (ansible_user ~ '@') if ansible_user is defined else '' }}{{ ansible_host }}
       -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5

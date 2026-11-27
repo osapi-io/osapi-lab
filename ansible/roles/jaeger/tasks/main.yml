@@ -42,6 +42,15 @@
     executable: /bin/bash
   changed_when: true
 
+# The UI has no authentication, so it listens only on the hub's tailnet
+# address. The receiver of the traces stays on each interface, because the VMs
+# reach it on the vmnet bridge.
+- name: Read the hub's tailnet address
+  ansible.builtin.command: "{{ lab_tailscale_cli }} ip -4"
+  register: jaeger_tailnet_ip
+  changed_when: false
+  check_mode: false
+
 - name: Write the trace collector config
   ansible.builtin.template:
     src: jaeger.yaml.j2
@@ -49,6 +58,7 @@
     mode: "0600"
   vars:
     hub_state: "{{ lab_hub_state_abs }}"
+    jaeger_ui_addr: "{{ jaeger_tailnet_ip.stdout_lines | first | trim }}"
 
 - name: Let the VMs reach the trace collector through the firewall
   ansible.builtin.include_role:

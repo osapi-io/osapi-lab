@@ -158,6 +158,31 @@
   roles:
     - vm_inventory
 
+# The base images ship the VM's user with the password "admin". The lab logs
+# in with its key and runs sudo with no password, so each run turns the
+# password off on each running VM, a new clone too: "*" matches no password,
+# and, unlike a lock ("!"), it leaves key login when sshd runs without PAM. To
+# get into a VM that SSH cannot reach, use the tart guest agent on the hub:
+#   tart exec lab-<vm> <command>
+- name: VM accounts
+  hosts: vms
+  gather_facts: false
+  become: true
+  tags: [vms]
+  tasks:
+    - name: Turn off the password of the VM's user
+      when: lab_mode != 'stop'
+      ansible.builtin.shell: |
+        set -euo pipefail
+        if [ "$(getent shadow {{ lab_vm_user | quote }} | cut -d: -f2)" != '*' ]; then
+          usermod -p '*' {{ lab_vm_user | quote }}
+          echo changed
+        fi
+      args:
+        executable: /bin/bash
+      register: lab_vm_password
+      changed_when: "'changed' in lab_vm_password.stdout"
+
 - name: Read the agents before a restart
   hosts: hub
   gather_facts: true
