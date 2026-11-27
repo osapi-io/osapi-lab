@@ -34,9 +34,23 @@
 - name: Name the local base of each distribution that has one
   ansible.builtin.set_fact:
     lab_images_bases: "{{ dict(lab_images_bases_sum.stdout_lines | map('split', ' ') | list) }}"
+# Each image bakes a join token that the operator's join key signs. A new
+# operator, such as the one that a deploy makes after a teardown, refuses those
+# tokens, so the operator is part of what an image is baked from. The account's
+# public key names the operator: it is public, and a new operator has a new one.
+- name: Fingerprint the NATS operator that signs the join tokens
+  ansible.builtin.shell: |
+    set -euo pipefail
+    shasum -a 256 {{ (lab_hub_state_abs ~ '/nats/account.pub') | quote }} | cut -c1-16
+  args:
+    executable: /bin/bash
+  register: lab_images_operator_sum
+  changed_when: false
+  check_mode: false
 - name: Name what each image is baked from
   ansible.builtin.set_fact:
-    lab_images_fingerprint: "{{ lab_build_fingerprint }}-{{ lab_images_packer_sum.stdout }}"
+    lab_images_fingerprint: >-
+      {{ lab_build_fingerprint }}-{{ lab_images_packer_sum.stdout }}-{{ lab_images_operator_sum.stdout }}
 - name: List the images on the hub
   ansible.builtin.command: tart list --quiet --source local
   register: lab_images_present
@@ -51,6 +65,28 @@
   changed_when: false
   failed_when: false
   check_mode: false
+# A VM records the image it was cloned from. The image's join token admits
+# one agent, so once a VM booted from it, a clone from it again cannot join.
+# An image is spent when its VM's record names it; a spent image whose VM does
+# not exist now is baked again before the VM is cloned.
+- name: Read the image each VM was cloned from
+  ansible.builtin.command: cat {{ (lab_hub_state_abs ~ '/vms/' ~ item.name ~ '.source') | quote }}
+  loop: "{{ lab_images_vms }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: lab_images_cloned
+  changed_when: false
+  failed_when: false
+  check_mode: false
+- name: Find the spent images whose VM does not exist
+  ansible.builtin.set_fact:
+    lab_images_respent: "{{ (lab_images_respent | default([])) + [item.item] }}"
+  loop: "{{ lab_images_cloned.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+  when:
+    - item.stdout == ('img-' ~ item.item.name ~ '-' ~ lab_build_tag ~ ' ' ~ lab_images_fingerprint)
+    - ('lab-' ~ item.item.name) not in lab_images_present.stdout_lines
 # A VM that upgrades in place clones its image one time. While the VM
 # exists, it needs no new image: a bump copies each build into it. lab_images_rebuild=true bakes it again, for `just rebuild`.
 - name: Choose the images to build
@@ -70,7 +106,8 @@
   ansible.builtin.set_fact:
     lab_images_wanted: >-
       {{ lab_images_vms if (lab_images_rebuild | bool)
-         else (lab_images_stale + lab_images_missing) | unique | reject('in', lab_images_kept) | list }}
+         else (lab_images_stale + lab_images_missing + (lab_images_respent | default([])))
+              | unique | reject('in', lab_images_kept) | list }}
 
 - name: Create the image records directory
   ansible.builtin.file:
