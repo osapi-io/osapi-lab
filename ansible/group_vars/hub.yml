@@ -1,0 +1,6 @@
+---
+# The hub's SSH host key is recorded in ~/.ssh/known_hosts at the first
+# connection, and a different key is refused later. To accept a key that changed
+# on purpose, such as after a reinstall of the hub:
+#   ssh-keygen -R <hub address> && ssh <hub address> true
+ansible_ssh_common_args: -o StrictHostKeyChecking=accept-new

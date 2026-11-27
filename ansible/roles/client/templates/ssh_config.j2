@@ -12,7 +12,8 @@ Host {{ vm }}
   User {{ lab_vm_user }}
   IdentityFile {{ lab_ssh_key }}
   ProxyJump {{ (hub.ansible_user ~ '@') if hub.ansible_user is defined else '' }}{{ hub.ansible_host }}
-  # Recloned VMs get new host keys.
+  # Recloned VMs get new host keys, so the check is off for the VM only. The
+  # jump to the hub reads ~/.ssh/known_hosts and checks the hub's key.
   StrictHostKeyChecking no
   UserKnownHostsFile /dev/null
   LogLevel ERROR
