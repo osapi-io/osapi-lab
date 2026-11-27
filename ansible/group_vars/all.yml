@@ -111,7 +111,10 @@ lab_vm_gateway: 192.168.64.1
 lab_vm_nats_url: tls://{{ lab_vm_gateway }}:{{ lab_nats_port }}
 # How long a join token of an image admits its VM, which joins at its first
 # boot, minutes after the bake.
-lab_join_expires: 24h
+# How long a join token lives, in hours. The client role reuses a token that
+# has an hour left, so the value is a whole number of hours.
+lab_join_expires_hours: 24
+lab_join_expires: "{{ lab_join_expires_hours }}h"
 
 # Jaeger on the hub collects every process's traces: the controller, NATS and
 # each agent send OTLP over gRPC to the OTLP port, and the UI is on the UI port.
