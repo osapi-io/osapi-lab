@@ -120,27 +120,6 @@
     src: "{{ lab_state }}/bin/osapi-linux-arm64"
     dest: "{{ lab_hub_state_abs }}/bin/osapi-linux-arm64"
     mode: "0755"
-# Each image bakes a join token that admits one agent, its VM, with the
-# distro as a label: the VM joins at its first boot, minutes after the bake.
-- name: Make the join token of each VM
-  ansible.builtin.command:
-    argv: >-
-      {{ lab_hub_cli + ['controller', 'join', 'token', 'create', '--expires', lab_join_expires,
-                        '--uses', '1', '--labels', 'distro=' ~ item.image, '--json'] }}
-  loop: "{{ lab_images_wanted }}"
-  loop_control:
-    label: "{{ item.name }}"
-  register: lab_images_join
-  changed_when: true
-  no_log: true
-
-- name: Delete the images being rebuilt
-  ansible.builtin.command: tart delete img-{{ item.name }}-{{ lab_build_tag }}
-  loop: "{{ lab_images_wanted }}"
-  loop_control:
-    label: "{{ item.name }}"
-  when: ('img-' ~ item.name ~ '-' ~ lab_build_tag) in lab_images_present.stdout_lines
-  changed_when: true
 - name: Make the local base of each distribution that has one
   ansible.builtin.include_role:
     name: tart_base
@@ -154,39 +133,16 @@
   # because these vars are evaluated lazily inside it.
   loop_control:
     loop_var: lab_images_base
-- name: Build the image of each VM
-  ansible.builtin.include_role:
-    name: packer
-  vars:
-    packer_template_dir: "{{ lab_root }}/packer"
-    packer_dest: "{{ lab_hub_state_abs }}/packer"
-    packer_vars:
-      vm: "{{ item.name }}"
-      distro: "{{ item.image }}"
-      base_image: "{{ lab_images_bases[item.image] | default('') }}"
-      image_tag: "{{ lab_build_tag }}"
-      revision: "{{ lab_build_revision }}"
-      osapi_binary: "{{ lab_hub_state_abs }}/bin/osapi-linux-arm64"
-      ssh_pubkey: "{{ lookup('ansible.builtin.file', lab_ssh_key ~ '.pub') }}"
-      nats_host: "{{ lab_vm_gateway }}"
-      nats_port: "{{ lab_nats_port }}"
-      tracing_port: "{{ lab_tracing_otlp_port }}"
-      hub_name: "{{ lab_hub_addr }}"
-    # The join string goes in the environment, so it is in no argument list
-    # on the hub and no log of this run.
-    packer_env:
-      PKR_VAR_join: >-
-        {{ ((lab_images_join.results | selectattr('item.name', 'equalto', item.name) | first).stdout
-            | from_json)['join'] | regex_replace('^tls://[^:/?]+:[0-9]+', lab_vm_nats_url) }}
+- name: Bake and record each wanted image, one at a time
+  ansible.builtin.include_tasks: bake.yml
   loop: "{{ lab_images_wanted }}"
   loop_control:
-    label: "{{ item.name }}"
-# current.yml reads it: a bump copies a build into a VM, so it must not run
-# when the packer directory changed since the VM's image was baked. Each VM
-# has its own record, because a run can bake the images of some VMs only. A
-# VM whose image this run did not bake keeps its record, or gets one when its
-# image is current.
-- name: Record the packer directory that each VM's image is baked from
+    loop_var: lab_images_vm
+    label: "{{ lab_images_vm.name }}"
+
+# A VM whose image this run did not bake keeps its record, or gets one when
+# its image is current.
+- name: Record the packer directory of each current image
   vars:
     lab_images_current: >-
       {{ lab_images_baked.results | selectattr('stdout', 'equalto', lab_images_fingerprint)
@@ -195,17 +151,10 @@
     dest: "{{ lab_hub_state_abs }}/images/{{ item.name }}.packer.sum"
     content: "{{ lab_images_packer_sum.stdout }}\n"
     mode: "0644"
-  loop: "{{ (lab_images_wanted + lab_images_current) | unique | list }}"
+  loop: "{{ lab_images_current | reject('in', lab_images_wanted) | list }}"
   loop_control:
     label: "{{ item.name }}"
-- name: Record the fingerprint each image was baked from
-  ansible.builtin.copy:
-    dest: "{{ lab_hub_state_abs }}/images/img-{{ item.name }}-{{ lab_build_tag }}.fingerprint"
-    content: "{{ lab_images_fingerprint }}"
-    mode: "0644"
-  loop: "{{ lab_images_wanted }}"
-  loop_control:
-    label: "{{ item.name }}"
+
 # An image that a build recorded in the last hour stays, also when this
 # build does not clone it: it can be the image of a run that broke the
 # lock, or that a VM is cloned from now (osapi-io/osapi-lab#38).

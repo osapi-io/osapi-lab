@@ -62,14 +62,27 @@
 
 - name: Sign the NATS auth again with the permissions of this build
   when:
-    - hub_host_operator_help.stdout is search('(?m)^  update ')
+    - hub_host_operator_help.stdout is search('(?m)^\\s+update\\b')
     - (hub_host_signed_with.stdout | trim) != (hub_host_build_sum.stdout.split() | first)
   ansible.builtin.command:
     argv: "{{ lab_hub_cli[:1] + ['nats', 'auth', 'operator', 'update', '--out', lab_hub_nats_dir] }}"
+  register: hub_host_signed
+  changed_when: true
+
+# NATS restarts on a new resolver.conf when the run has its tag. A run on the
+# controller alone, such as `just bump controller`, signs the auth again but
+# skips NATS, which would keep the old permissions until its next run: restart
+# it here. NATS is back in seconds, and the agents reconnect.
+- name: Restart NATS on the new auth, on a run without NATS
+  when:
+    - hub_host_signed is changed
+    - "'all' not in ansible_run_tags"
+    - "'nats' not in ansible_run_tags"
+  ansible.builtin.shell: launchctl kickstart -k "gui/$(id -u)/{{ lab_labels.nats }}"
   changed_when: true
 
 - name: Record the build that the NATS auth was signed with
-  when: hub_host_operator_help.stdout is search('(?m)^  update ')
+  when: hub_host_operator_help.stdout is search('(?m)^\\s+update\\b')
   ansible.builtin.copy:
     dest: "{{ lab_hub_nats_dir }}/signed-with"
     content: "{{ hub_host_build_sum.stdout.split() | first }}\n"
@@ -78,15 +91,27 @@
 # The signing keys are in the controller's vault after its first run: the
 # config then refers to them, and has no key in it (osapi-io/osapi-lab#54).
 # The record is in the store of the vault, so it goes with the store.
+# The record counts only while the store's data is there: a store whose data
+# was removed has no vault, so the config gets the keys again, and the
+# controller writes them back into the new vault.
 - name: Check whether the vault holds the signing keys
   ansible.builtin.stat:
     path: "{{ lab_vault_marker }}"
   register: hub_host_in_vault
 
+- name: Check that the store's data is there
+  ansible.builtin.stat:
+    path: "{{ lab_hub_state_abs }}/jetstream/jetstream"
+  register: hub_host_store_data
+
+- name: Decide whether the vault holds the signing keys
+  ansible.builtin.set_fact:
+    hub_host_keys_in_vault: "{{ hub_host_in_vault.stat.exists and hub_host_store_data.stat.exists }}"
+
 - name: Render the hub's config
   ansible.builtin.include_tasks: config.yml
   vars:
-    hub_host_signing_in_vault: "{{ hub_host_in_vault.stat.exists }}"
+    hub_host_signing_in_vault: "{{ hub_host_keys_in_vault }}"
 
 - name: Let agents reach NATS through the firewall
   ansible.builtin.include_role:

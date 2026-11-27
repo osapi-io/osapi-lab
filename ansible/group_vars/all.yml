@@ -189,6 +189,9 @@ lab_hub_inputs_common:
 # The launchd label of each process of the lab on the hub, and of each VM:
 # io.osapi.lab.<process> and io.osapi.lab.vm.<name>.
 lab_label_prefix: io.osapi.lab
+# What the controller reads at start. Each restart of it names the same list,
+# so a later run sees the same checksum and does not restart it again.
+lab_hub_inputs_controller: "{{ lab_hub_inputs_common + [lab_hub_nats_dir ~ '/controller.creds'] }}"
 lab_labels:
   nats: "{{ lab_label_prefix }}.nats"
   controller: "{{ lab_label_prefix }}.controller"

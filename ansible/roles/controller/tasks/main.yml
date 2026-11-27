@@ -13,7 +13,7 @@
     launchd_working_directory: "{{ lab_hub_state_abs }}"
     launchd_log: "{{ lab_hub_state_abs }}/log/controller.log"
     launchd_restart: "{{ lab_mode == 'restart' }}"
-    launchd_inputs: "{{ lab_hub_inputs_common + [lab_hub_nats_dir ~ '/controller.creds'] }}"
+    launchd_inputs: "{{ lab_hub_inputs_controller }}"
     launchd_inputs_record: "{{ lab_hub_state_abs }}/run/controller.inputs"
 
 # The controller answers once it reads its config and binds its port. A run
