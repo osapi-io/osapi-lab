@@ -32,6 +32,49 @@
   args:
     creates: "{{ lab_hub_nats_dir }}/resolver.conf"
 
+# operator create freezes each role's permissions into the account JWT and the
+# credentials files, so a build that adds a subject to a role does not reach
+# NATS by itself (osapi-io/osapi-lab#94). operator update signs them again
+# with the same keys, so no agent joins again. It runs when the darwin build is
+# not the one that the auth was last signed with: a second deploy of the same
+# build signs nothing. resolver.conf is an input of NATS and the controller, so
+# both restart when it changes.
+- name: Read the build that the NATS auth was signed with
+  ansible.builtin.command: cat {{ (lab_hub_nats_dir ~ '/signed-with') | quote }}
+  register: hub_host_signed_with
+  changed_when: false
+  failed_when: false
+
+- name: Read the checksum of the darwin build
+  ansible.builtin.command: shasum -a 256 {{ (lab_hub_state_abs ~ '/bin/osapi-darwin-arm64') | quote }}
+  register: hub_host_build_sum
+  changed_when: false
+
+# A build from before osapi-io/osapi#1531 has no operator update: it keeps the
+# auth that it has, and the record stays, so a later build that has it signs.
+# The help of operator lists its commands; update --help exits 0 also on a
+# build that has no update, because it prints the help of operator.
+- name: Check whether this build can sign the NATS auth again
+  ansible.builtin.command:
+    argv: "{{ lab_hub_cli[:1] + ['nats', 'auth', 'operator', '--help'] }}"
+  register: hub_host_operator_help
+  changed_when: false
+
+- name: Sign the NATS auth again with the permissions of this build
+  when:
+    - hub_host_operator_help.stdout is search('(?m)^  update ')
+    - (hub_host_signed_with.stdout | trim) != (hub_host_build_sum.stdout.split() | first)
+  ansible.builtin.command:
+    argv: "{{ lab_hub_cli[:1] + ['nats', 'auth', 'operator', 'update', '--out', lab_hub_nats_dir] }}"
+  changed_when: true
+
+- name: Record the build that the NATS auth was signed with
+  when: hub_host_operator_help.stdout is search('(?m)^  update ')
+  ansible.builtin.copy:
+    dest: "{{ lab_hub_nats_dir }}/signed-with"
+    content: "{{ hub_host_build_sum.stdout.split() | first }}\n"
+    mode: "0600"
+
 # The signing keys are in the controller's vault after its first run: the
 # config then refers to them, and has no key in it (osapi-io/osapi-lab#54).
 - name: Check whether the vault holds the signing keys
