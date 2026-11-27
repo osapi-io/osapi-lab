@@ -66,7 +66,7 @@
     client_remote_mint: >-
       {{ not client_remote_config.stat.exists
          or (now().timestamp() - client_remote_config.stat.mtime)
-            > (lab_join_expires | regex_replace('h$', '') | int - 1) * 3600 }}
+            > (lab_join_expires_hours | int - 1) * 3600 }}
 
 # `just stop controller` and `just ssh` run this role with the controller
 # down. The remote agent's config then waits for a run with the controller up.

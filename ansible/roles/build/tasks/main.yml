@@ -57,20 +57,35 @@
     executable: /bin/bash
     cmd: |
       set -o pipefail
-      git fetch -q origin main
+      # A fetch that fails, such as offline, compares with the origin/main
+      # that the last fetch left: the run says so, and goes on.
+      if git fetch -q origin main 2>/dev/null; then fetched=fetched; else fetched=unfetched; fi
+      if ! git rev-parse -q --verify origin/main > /dev/null; then
+        echo "{{ build_dir }} has no origin/main to compare with: add the osapi remote as origin, or -e build_allow_stale=true" >&2
+        exit 1
+      fi
       if git symbolic-ref -q HEAD > /dev/null; then echo branch; else echo detached; fi
       git rev-list --count HEAD..origin/main
       git rev-parse --short origin/main
+      echo "$fetched"
     chdir: "{{ build_dir }}"
   register: build_base
   changed_when: false
+  failed_when: build_base.rc != 0 and not (build_allow_stale | bool)
   check_mode: false
+
+- name: Say that origin/main could not be fetched
+  when: build_base.rc == 0 and build_base.stdout_lines[3] == 'unfetched'
+  ansible.builtin.debug:
+    msg: >-
+      git fetch origin main failed in {{ build_dir }}: the check compares with
+      origin/main as the last fetch left it ({{ build_base.stdout_lines[2] }}).
 
 - name: Refuse an old checkout
   ansible.builtin.assert:
     that: >-
       (build_allow_stale | bool) or
-      (build_base.stdout_lines[0] == 'branch' and build_base.stdout_lines[1] == '0')
+      (build_base.rc == 0 and build_base.stdout_lines[0] == 'branch' and build_base.stdout_lines[1] == '0')
     fail_msg: >-
       {{ build_dir }} is at {{ build_rev.stdout_lines[0] }}, which is
       {{ 'a detached HEAD and ' if build_base.stdout_lines[0] == 'detached' else '' }}{{ build_base.stdout_lines[1] }}
