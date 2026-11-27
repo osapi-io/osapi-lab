@@ -1,5 +1,21 @@
 ---
 # Takes the lock that keeps two lab runs from changing the images and the VMs at once (osapi-io/osapi-lab#38).
+
+# With no ansible/inventory.yml the play below matches no host, takes no lock
+# and still succeeds, so a session ran with no lock (osapi-io/osapi-lab#93).
+- name: Check the inventory has the hub
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Refuse to run with no hub in the inventory
+      ansible.builtin.assert:
+        that: groups['hub'] | default([]) | length == 1
+        fail_msg: >-
+          the inventory has no hub, so no lock can be taken: copy
+          ansible/inventory.example.yml to ansible/inventory.yml in this
+          checkout and set the hub's address
+        quiet: true
+
 - name: Take the lab's lock
   hosts: hub
   gather_facts: true
