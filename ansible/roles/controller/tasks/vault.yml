@@ -31,6 +31,14 @@
   changed_when: true
   no_log: true
 
+# A run with only the controller's tag, before NATS ever ran, has no store
+# directory yet.
+- name: Make the store's directory for the record
+  ansible.builtin.file:
+    path: "{{ lab_vault_marker | dirname }}"
+    state: directory
+    mode: "0700"
+
 - name: Record that the vault holds the signing keys
   ansible.builtin.copy:
     dest: "{{ lab_vault_marker }}"
@@ -39,7 +47,7 @@
 
 # hub_host rendered the keys themselves when the vault did not hold them yet.
 - name: Refer to the signing keys in the config
-  when: not (hub_host_in_vault.stat.exists | default(false))
+  when: not (hub_host_keys_in_vault | default(false) | bool)
   block:
     - name: Render the hub's config with the references
       ansible.builtin.include_role:
@@ -57,7 +65,7 @@
         launchd_working_directory: "{{ lab_hub_state_abs }}"
         launchd_log: "{{ lab_hub_state_abs }}/log/controller.log"
         launchd_restart: true
-        launchd_inputs: "{{ lab_hub_inputs_common }}"
+        launchd_inputs: "{{ lab_hub_inputs_controller }}"
         launchd_inputs_record: "{{ lab_hub_state_abs }}/run/controller.inputs"
 
     - name: Wait for the controller to answer on the references

@@ -1,0 +1,59 @@
+---
+# Bakes the image of one VM, lab_images_vm, and records it. main.yml runs it
+# once for each wanted image, so a bake that fails leaves each image before it
+# baked and recorded, and each image after it as it was.
+
+# The image bakes a join token that admits one agent, its VM, with the
+# distro as a label: the VM joins at its first boot, minutes after the bake.
+- name: Make the join token of {{ lab_images_vm.name }}
+  ansible.builtin.command:
+    argv: >-
+      {{ lab_hub_cli + ['controller', 'join', 'token', 'create', '--expires', lab_join_expires,
+                        '--uses', '1', '--labels', 'distro=' ~ lab_images_vm.image, '--json'] }}
+  register: lab_images_join
+  changed_when: true
+  no_log: true
+
+- name: Delete the image of {{ lab_images_vm.name }}
+  ansible.builtin.command: tart delete img-{{ lab_images_vm.name }}-{{ lab_build_tag }}
+  when: ('img-' ~ lab_images_vm.name ~ '-' ~ lab_build_tag) in lab_images_present.stdout_lines
+  changed_when: true
+
+- name: Build the image of {{ lab_images_vm.name }}
+  ansible.builtin.include_role:
+    name: packer
+  vars:
+    packer_template_dir: "{{ lab_root }}/packer"
+    packer_dest: "{{ lab_hub_state_abs }}/packer"
+    packer_vars:
+      vm: "{{ lab_images_vm.name }}"
+      distro: "{{ lab_images_vm.image }}"
+      base_image: "{{ lab_images_bases[lab_images_vm.image] | default('') }}"
+      image_tag: "{{ lab_build_tag }}"
+      revision: "{{ lab_build_revision }}"
+      osapi_binary: "{{ lab_hub_state_abs }}/bin/osapi-linux-arm64"
+      ssh_pubkey: "{{ lookup('ansible.builtin.file', lab_ssh_key ~ '.pub') }}"
+      nats_host: "{{ lab_vm_gateway }}"
+      nats_port: "{{ lab_nats_port }}"
+      tracing_port: "{{ lab_tracing_otlp_port }}"
+      hub_name: "{{ lab_hub_addr }}"
+    # The join string goes in the environment, so it is in no argument list
+    # on the hub and no log of this run.
+    packer_env:
+      PKR_VAR_join: >-
+        {{ (lab_images_join.stdout | from_json)['join']
+           | regex_replace('^tls://[^:/?]+:[0-9]+', lab_vm_nats_url) }}
+
+# current.yml reads it: a bump copies a build into a VM, so it must not run
+# when the packer directory changed since the VM's image was baked.
+- name: Record the packer directory of the image, for {{ lab_images_vm.name }}
+  ansible.builtin.copy:
+    dest: "{{ lab_hub_state_abs }}/images/{{ lab_images_vm.name }}.packer.sum"
+    content: "{{ lab_images_packer_sum.stdout }}\n"
+    mode: "0644"
+
+- name: Record the fingerprint of the image, for {{ lab_images_vm.name }}
+  ansible.builtin.copy:
+    dest: "{{ lab_hub_state_abs }}/images/img-{{ lab_images_vm.name }}-{{ lab_build_tag }}.fingerprint"
+    content: "{{ lab_images_fingerprint }}"
+    mode: "0644"
