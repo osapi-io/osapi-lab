@@ -1,7 +1,8 @@
 ---
 # Compiles the osapi checkout at lab_osapi_dir, on the machine running Ansible,
 # for each OS of build_os: darwin for this machine and the hub, linux for the
-# VMs. Whatever branch it is on, uncommitted changes included.
+# VMs, uncommitted changes included. It refuses a checkout that is detached or
+# behind origin/main, unless -e build_allow_stale=true.
 #
 # An OS is skipped when the checkout has not changed since it was built: the
 # commit, the uncommitted diff and the untracked files are fingerprinted, and
@@ -46,6 +47,36 @@
   register: build_rev
   changed_when: false
   check_mode: false
+
+# A detached HEAD or a branch behind origin/main is an old build: on 26
+# November 2026 a NATS from before the AES store could not open the hub's
+# store, and the agents dropped. A branch ahead of origin/main, and
+# uncommitted changes, are a change under test, and pass.
+- name: Compare the checkout with origin/main
+  ansible.builtin.shell:
+    executable: /bin/bash
+    cmd: |
+      set -o pipefail
+      git fetch -q origin main
+      if git symbolic-ref -q HEAD > /dev/null; then echo branch; else echo detached; fi
+      git rev-list --count HEAD..origin/main
+      git rev-parse --short origin/main
+    chdir: "{{ build_dir }}"
+  register: build_base
+  changed_when: false
+  check_mode: false
+
+- name: Refuse an old checkout
+  ansible.builtin.assert:
+    that: >-
+      (build_allow_stale | bool) or
+      (build_base.stdout_lines[0] == 'branch' and build_base.stdout_lines[1] == '0')
+    fail_msg: >-
+      {{ build_dir }} is at {{ build_rev.stdout_lines[0] }}, which is
+      {{ 'a detached HEAD and ' if build_base.stdout_lines[0] == 'detached' else '' }}{{ build_base.stdout_lines[1] }}
+      commits behind origin/main ({{ build_base.stdout_lines[2] }}). Put it on main and pull, or
+      rebase the branch onto origin/main. -e build_allow_stale=true builds it anyway.
+    quiet: true
 
 - name: Check for the binaries
   ansible.builtin.stat:
