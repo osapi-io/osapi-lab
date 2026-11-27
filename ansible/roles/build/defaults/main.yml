@@ -6,3 +6,7 @@ build_os: >-
   {{ ['darwin', 'linux'] if (build_every_os | bool)
      else ['darwin'] + (['linux'] if (lab_vms_in_scope | bool) and (lab_replace_vms + lab_update_vms) | length > 0 else []) }}
 build_force: false
+# build_allow_stale builds a checkout that is detached, or behind origin/main.
+# The build refuses those by default: a build from an old commit put a NATS on
+# the hub that could not open the store, two times on 26 November 2026.
+build_allow_stale: false
