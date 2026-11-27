@@ -142,12 +142,14 @@ int *vms:
         fi
     fi
     mkdir -p .lab/int
+    # The timeout is the one of osapi's go-int workflow: the suite runs for
+    # more than go test's default of 10m.
     failed=()
     for vm in $vms; do
         echo "== $vm"
         if (cd "$osapi" && OSAPI_INTEGRATION_OSAPIFILE={{ justfile_directory() }}/.lab/config/cli.yaml \
             OSAPI_INTEGRATION_TARGET="$vm" OSAPI_INTEGRATION_WRITES=1 OSAPI_INTEGRATION_WRITE_BEHAVIORS=1 \
-            mise exec -- just go-unit-int) > ".lab/int/$vm.log" 2>&1; then
+            GOFLAGS=-timeout=20m mise exec -- just go-unit-int) > ".lab/int/$vm.log" 2>&1; then
             echo "   ok    .lab/int/$vm.log"
         else
             echo "   FAIL  .lab/int/$vm.log"
