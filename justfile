@@ -123,7 +123,7 @@ _lab mode *targets:
     if [ ${#tags[@]} -gt 0 ]; then args+=(--tags "$(IFS=,; echo "${tags[*]}")"); fi
     just ansible-run lab "${args[@]}" ${extra[@]+"${extra[@]}"}
 
-# Run osapi's integration suite against each VM of the lab and each other Ready agent, such as the Mac of `just agent`, or the agents named, such as `just int ubuntu-1 fedora-1`, with the write tests that CI runs; run it in a lab-session. LAB_OSAPI names the osapi checkout (../osapi)
+# Run osapi's integration suite against each VM of the lab and each other Ready agent, such as the Mac of `just agent`, or the agents named, such as `just int ubuntu-1 fedora-1`, with the write tests that CI runs, through the CLI and through the SDK; run it in a lab-session. LAB_OSAPI names the osapi checkout (../osapi), and LAB_INT_CLIENTS the clients (cli sdk)
 [group('lab')]
 int *vms:
     #!/usr/bin/env bash
@@ -144,18 +144,26 @@ int *vms:
     mkdir -p .lab/int
     # The timeout is the one of osapi's go-int workflow: the suite runs for
     # more than go test's default of 10m.
+    # Each VM runs the suite one time for each client: the CLI, and the SDK,
+    # which sends each request of the CLI through its typed method for the
+    # operation, as osapi's go-int workflow does.
+    clients="${LAB_INT_CLIENTS:-cli sdk}"
     failed=()
     for vm in $vms; do
-        echo "== $vm"
-        if (cd "$osapi" && OSAPI_INTEGRATION_OSAPIFILE={{ justfile_directory() }}/.lab/config/cli.yaml \
-            OSAPI_INTEGRATION_TARGET="$vm" OSAPI_INTEGRATION_WRITES=1 OSAPI_INTEGRATION_WRITE_BEHAVIORS=1 \
-            GOFLAGS=-timeout=20m mise exec -- just go-unit-int) > ".lab/int/$vm.log" 2>&1; then
-            echo "   ok    .lab/int/$vm.log"
-        else
-            echo "   FAIL  .lab/int/$vm.log"
-            grep -E '^\s+--- FAIL' ".lab/int/$vm.log" | head -10
-            failed+=("$vm")
-        fi
+        for client in $clients; do
+            log=".lab/int/$vm-$client.log"
+            echo "== $vm ($client)"
+            if (cd "$osapi" && OSAPI_INTEGRATION_OSAPIFILE={{ justfile_directory() }}/.lab/config/cli.yaml \
+                OSAPI_INTEGRATION_TARGET="$vm" OSAPI_INTEGRATION_CLIENT="$client" \
+                OSAPI_INTEGRATION_WRITES=1 OSAPI_INTEGRATION_WRITE_BEHAVIORS=1 \
+                GOFLAGS=-timeout=20m mise exec -- just go-unit-int) > "$log" 2>&1; then
+                echo "   ok    $log"
+            else
+                echo "   FAIL  $log"
+                grep -E '^\s+--- FAIL' "$log" | head -10
+                failed+=("$vm/$client")
+            fi
+        done
     done
     if [ ${#failed[@]} -gt 0 ]; then
         echo "failed: ${failed[*]}"
