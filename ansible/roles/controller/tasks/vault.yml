@@ -1,6 +1,6 @@
 ---
 # Keeps the lab's signing keys in the controller's vault, as a person would
-# with osapi client secret update, and the config refers to them there
+# with osapi client secret create, and the config refers to them there
 # (osapi-io/osapi-lab#54). The controller resolves the references at its
 # start. The first run starts it with the keys themselves, writes them, and
 # then starts it again on the references. A NATS password and a vault key
@@ -20,10 +20,14 @@
   check_mode: false
   no_log: true
 
+# A key that the vault does not hold is a create. A key with a different
+# value is an update, because a create of a key that exists with a different
+# value is refused with 409.
 - name: Write each signing key that the vault does not hold
   ansible.builtin.command:
     argv: >-
-      {{ lab_hub_cli + ['client', 'secret', 'update', '--vault', lab_vault,
+      {{ lab_hub_cli + ['client', 'secret', 'create' if item.rc != 0 else 'update',
+                        '--vault', lab_vault,
                         '--key', lab_vault_signing_key_prefix ~ item.item.id, '--value', '-'] }}
     stdin: "{{ item.item.key }}"
   loop: "{{ controller_vault_keys.results }}"
